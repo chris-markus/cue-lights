@@ -1,3 +1,6 @@
+# ignore dev only files
+@DEV*
+
 # MacOS
 .DS_Store
 
