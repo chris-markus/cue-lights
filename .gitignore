@@ -1,6 +1,9 @@
 # ignore dev only files
 @DEV*
 
+#vscode
+.vscode/
+
 # MacOS
 .DS_Store
 

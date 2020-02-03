@@ -5,4 +5,12 @@
 // =====================================================
 
 // Strings file for controller UI
-#define HELLO_WORLD "Hello World!"
+#define STR_SPLASH "Tufts Drama + Dance"
+
+#define STR_BANK "Bank"
+#define STR_PRESSFORMENU "Press for main menu"
+
+// menu strings:
+#define STR_MENU_MAIN "Main Menu"
+
+#define STR_BACK_BUTTON "< Back"
