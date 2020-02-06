@@ -27,6 +27,20 @@
 #define CLC_PKTTYPE_STATUS 0b010
 #define CLC_PKTTYPE_ACK 0b011
 
+enum CLCButtonType {
+    ACTIVE_HIGH,
+    ACTIVE_LOW,
+    ACTIVE_LOW_PULLUP,
+};
+
+class CLCDebouncedButton {
+public:
+    CLCDebouncedButton(unsigned int pin_in, CLCButtonType type_in);
+private:
+    unsigned int pin;
+    CLCButtonType type;
+};
+
 // packet definition
 // [Start byte][Address bits (5) | packet type bits (3)][Data][Data][Data][Stop byte]
 

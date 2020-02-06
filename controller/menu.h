@@ -8,7 +8,7 @@
 #define MENU_H
 
 #include <stdint.h>
-#include "ui_layer.h"
+#include "lcd_screen.h"
 
 #define MAX_MENU_ITEMS 255
 #define MAX_NAME_LENGTH 20
@@ -28,11 +28,11 @@ class MenuItemBase {
     MenuItemBase(const char* nameInpt, bool showNum = true);
 
     // virtual methods
-    virtual void renderItem(UIInterface* screen, int16_t yPos, bool selected = false);
+    virtual void renderItem(LCDScreen* screen, int16_t yPos, bool selected = false);
     virtual void dispatchPress() { /*do nothing*/ };
     virtual MenuItemType getItemType() { return MISC; };
     virtual bool getSelectable() { return true; };
-    virtual uint16_t getHeight(UIInterface*);
+    virtual uint16_t getHeight(LCDScreen*);
 
     // getters and setters:
     const char* getName() {return name; };
@@ -70,8 +70,8 @@ class HeaderItem: public MenuItemBase {
     HeaderItem(const char* nameInpt):MenuItemBase(nameInpt, /*showIndex =*/false){ /* empty */ };
     virtual bool getSelectable() { return false; };
 
-    virtual void renderItem(UIInterface* screen, int16_t yPos, bool selected = false);
-    virtual uint16_t getHeight(UIInterface*);
+    virtual void renderItem(LCDScreen* screen, int16_t yPos, bool selected = false);
+    virtual uint16_t getHeight(LCDScreen*);
 };
 
 class Menu: public MenuItemBase {
@@ -79,13 +79,13 @@ class Menu: public MenuItemBase {
     Menu(const char* nameInpt, uint8_t count, ...);
     Menu(const char* nameInpt, uint8_t count, MenuItemBase** itemsIn);
 
-    void bindToScreen(UIInterface* scrn);
+    void bindToScreen(LCDScreen* scrn);
 
     virtual MenuItemType getItemType() { return MENU; };
     MenuItemBase* getSelectedItem() { return items[selectedIndex]; };
     virtual void dispatchPress() { /*do nothing*/ };
 
-    virtual void renderItem(UIInterface* screen, int16_t yPos, bool selected = false);
+    virtual void renderItem(LCDScreen* screen, int16_t yPos, bool selected = false);
     
     void selectIndex(uint8_t index);
     void selectIndex();
@@ -96,7 +96,7 @@ class Menu: public MenuItemBase {
   private:
     Menu* parentMenu = NULL;
     void commonInit();
-    UIInterface* screen;
+    LCDScreen* screen;
     uint16_t length = 0;
     uint8_t selectedIndex = 0;
     uint16_t scrollPos = 0;
@@ -106,7 +106,7 @@ class Menu: public MenuItemBase {
 
 class NavigationController {
   public:
-    NavigationController(UIInterface* scrn, Menu* topMenu);
+    NavigationController(LCDScreen* scrn, Menu* topMenu);
     void dispatchPress();
 
     void selectNext();
@@ -114,7 +114,7 @@ class NavigationController {
 
     void goHome();
   private:
-    UIInterface* screen;
+    LCDScreen* screen;
     Menu* currentMenu;
 };
 

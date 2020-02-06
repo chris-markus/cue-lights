@@ -4,15 +4,15 @@
 // This software is licensed under the GNU GPLv3 License
 // =====================================================
 
-#include "ui_layer.h"
+#include "lcd_screen.h"
 #include <String.h>
 
-UIInterface::UIInterface(uint16_t w, uint16_t h, TwoWire *twi, uint8_t screen_i2cAddr) 
+LCDScreen::LCDScreen(uint16_t w, uint16_t h, TwoWire *twi, uint8_t screen_i2cAddr) 
 : Adafruit_SSD1306(w, h, twi, -1) {
   i2cAddr = screen_i2cAddr;
 }
 
-void UIInterface::init() {
+void LCDScreen::init() {
   if(!begin(SSD1306_SWITCHCAPVCC, i2cAddr)) {
     Serial.println(F("SSD1306 allocation failed"));
     for(;;);
@@ -26,7 +26,7 @@ void UIInterface::init() {
   clearDisplay();
 }
 
-void UIInterface::showSplash() {
+void LCDScreen::showSplash() {
   setTextColor(WHITE);
   printCentered(STR_SPLASH);
   invertDisplay(true);
@@ -36,7 +36,7 @@ void UIInterface::showSplash() {
   update();
 }
 
-void UIInterface::printCentered(const char *string, bool centerVertically, uint16_t y_offset) {
+void LCDScreen::printCentered(const char *string, bool centerVertically, uint16_t y_offset) {
   int16_t x, y;
   uint16_t w, h;
   getTextBounds(string,0,0,&x,&y,&w,&h);
@@ -51,34 +51,17 @@ void UIInterface::printCentered(const char *string, bool centerVertically, uint1
   println(string);
 }
 
-void UIInterface::printCentered(const String &string, bool centerVertically, uint16_t y_offset) {
+void LCDScreen::printCentered(const String &string, bool centerVertically, uint16_t y_offset) {
   if (string.length() != 0) {
     printCentered(const_cast<char *>(string.c_str()), centerVertically, y_offset);
   }
 }
 
 // Some remapping
-void UIInterface::update() {
+void LCDScreen::update() {
   display();
 }
 
-void UIInterface::clear() {
+void LCDScreen::clear() {
   clearDisplay();
 }
-
-/*
-void UIInterface::testLoop() {
-  static bool clear = true;
-  if (Serial.available()) {
-    if (clear) {
-      display.clearDisplay();
-      clear = false;
-    }
-    display.write(Serial.read());
-    display.display();
-  }
-  else{
-    display.setCursor(0,0);
-    clear = true;
-  }
-}*/

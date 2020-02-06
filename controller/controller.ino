@@ -4,38 +4,47 @@
 // This software is licensed under the GNU GPLv3 License
 // =====================================================
 
+// Required libraries:
+// Encoder: Arduino Package Manager
+// Wire.h: Arduino Package Manager
+// Adafruit_SSD1306: Arduino Package Manager
+// Adafruit_GFX: Arduino Package Manager
+// CueLightsCommon: In git repo (follow instructions in README)
+
 // include libraries
 #define ENCODER_OPTIMIZE_INTERRUPTS
 #include <Encoder.h>
+#include <Wire.h>
 
 // include our source files
 #include <CueLightsCommon.h>
 #include "strings.h"
-#include "ui_layer.h"
+#include "lcd_screen.h"
+#include "ui_controller.h"
 #include "menu.h"
-#include <Wire.h>
 
 // define constants
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
 
 // some global objects
-UIInterface screen(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire);
+CLCDebouncedButton encoderButton(53, ACTIVE_LOW_PULLUP);
+LCDScreen screen(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire);
 Encoder encoder(18,19);
 
-NavigationController *navigation;
+// references to our UI controllers
+NavigationController* navigation;
+UIController* interface;
 
-void doNothing();
-void launchSubMenu();
-
+// Menu definition and helper methods
 void goHome() {
   navigation->goHome();
 }
 
 // back buttons are automatically added
-Menu mainMenu( "Main Menu", 7,
+Menu mainMenu( "", 7,
   new HeaderItem("Main Menu"),
-  new MenuItem("<  Home", false, goHome),
+  new MenuItem("X Close", false, goHome),
   new MenuItem("Item 2"),
   new Menu("Submenu 1", 2,
     new MenuItem("Home", goHome),
@@ -44,19 +53,13 @@ Menu mainMenu( "Main Menu", 7,
       new MenuItem("Item 2")
     )
   ),
-  new MenuItem("Item 4"),
+  new MenuItem("Loooooooooong item"),
   new MenuItem("Item 5"),
-  new MenuItem("Item 6"),
-  new MenuItem("Item 7")
+  new MenuItem("Item 6")
 );
-
-void doNothing(){
-  // well, do nothing
-}
 
 void setup() {
   pinMode(2, OUTPUT);
-  pinMode(53, INPUT_PULLUP);
   digitalWrite(2, LOW);
   Serial.begin(115200);
   screen.init();
@@ -64,29 +67,9 @@ void setup() {
   screen.showSplash();
 
   navigation = new NavigationController(&screen, &mainMenu);
+  interface = new UIController(&encoder, &encoderButton, navigation);
 }
 
 void loop() {  
-  static long offset = 0;
-  static bool didPress = false;
-  long reading = encoder.read();
-  if (reading > offset + 3) {
-    navigation->selectNext();
-    offset = reading;
-  }
-  else if (reading < offset - 3) {
-    navigation->selectPrev();
-    offset = reading;
-  }
-  if (!digitalRead(53)) {
-    if (!didPress) {
-      navigation->dispatchPress();
-      didPress = true;
-      delay(100);
-    }
-  }
-  else if (didPress) {
-    didPress = false;
-    delay(100);
-  }
+  interface->tick();
 }

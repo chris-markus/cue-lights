@@ -17,7 +17,7 @@ MenuItemBase::MenuItemBase(const char* nameInpt, bool showNum) {
   showIndex = showNum;
 }
 
-void MenuItemBase::renderItem(UIInterface* screen, int16_t yPos, bool selected) {
+void MenuItemBase::renderItem(LCDScreen* screen, int16_t yPos, bool selected) {
   int16_t yStart = yPos;
   
   yPos += MENU_ITEM_PADDING + 1;
@@ -53,7 +53,7 @@ void MenuItemBase::renderItem(UIInterface* screen, int16_t yPos, bool selected) 
   }
 }
 
-uint16_t MenuItemBase::getHeight(UIInterface* screen) {
+uint16_t MenuItemBase::getHeight(LCDScreen* screen) {
   /* 
   *  height calculation:
   *  top border
@@ -96,7 +96,7 @@ void MenuItem::dispatchPress() {
 // HeaderItem
 // =====================================================
 
-void HeaderItem::renderItem(UIInterface* screen, int16_t yPos, bool select = false) {
+void HeaderItem::renderItem(LCDScreen* screen, int16_t yPos, bool select = false) {
   int16_t yStart = yPos;
   yPos += MENU_ITEM_PADDING + 8;
   int16_t x,y;
@@ -107,7 +107,7 @@ void HeaderItem::renderItem(UIInterface* screen, int16_t yPos, bool select = fal
   screen->drawFastHLine(0,yPos,screen->width(),WHITE);
 }
 
-uint16_t HeaderItem::getHeight(UIInterface* screen) {
+uint16_t HeaderItem::getHeight(LCDScreen* screen) {
   int16_t x,y;
   uint16_t w,h;
   screen->getTextBounds(name,MENU_ITEM_PADDING,0,&x,&y,&w,&h);
@@ -163,12 +163,12 @@ void Menu::commonInit() {
   }
 }
 
-void Menu::bindToScreen(UIInterface* scrn) {
+void Menu::bindToScreen(LCDScreen* scrn) {
   screen = scrn;
 }
 
 // add a right-justified triangle to indicate a submenu
-void Menu::renderItem(UIInterface* screen, int16_t yPos, bool selected) {
+void Menu::renderItem(LCDScreen* screen, int16_t yPos, bool selected) {
   const int16_t triangleSize = 6;
   // 8 is the text height
   int16_t padding = MENU_ITEM_PADDING + (8 - triangleSize)/2;
@@ -273,7 +273,7 @@ void Menu::drawAtPos(int16_t scrollPos) {
 // NavigationController
 // =====================================================
 
-NavigationController::NavigationController(UIInterface* scrn, Menu* topMenu) {
+NavigationController::NavigationController(LCDScreen* scrn, Menu* topMenu) {
   screen = scrn;
   currentMenu = topMenu;
   currentMenu->bindToScreen(scrn);
