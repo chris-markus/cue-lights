@@ -316,3 +316,7 @@ void NavigationController::goHome() {
   }
   currentMenu->selectIndex(0);
 }
+
+void NavigationController::display() {
+  currentMenu->selectIndex();
+}

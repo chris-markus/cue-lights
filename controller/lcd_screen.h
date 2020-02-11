@@ -23,8 +23,8 @@ class LCDScreen: public Adafruit_SSD1306 {
 
     void init();
     void showSplash();
-    void printCentered(const char *string, bool centerVertically = true, uint16_t y_offset = 0);
-    void printCentered(const String &string, bool centerVertically = true, uint16_t y_offset = 0);
+    int16_t printCentered(const char *string, bool centerVertically = true, uint16_t y_offset = 0);
+    int16_t printCentered(const String &string, bool centerVertically = true, uint16_t y_offset = 0);
     void update();
     void clear();
     

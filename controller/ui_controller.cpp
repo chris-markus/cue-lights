@@ -13,26 +13,28 @@ UIController::UIController(Encoder* encoder_in, CLCDebouncedButton* encoder_btn_
 }
 
 void UIController::tick() {
-    static long offset = 0;
     static bool didPress = false;
     long reading = encoder->read();
-    if (reading > offset + 3) {
+    if (reading >= offset + ENCODER_STEPS_PER_CLICK) {
         navigation->selectNext();
         offset = reading;
     }
-    else if (reading < offset - 3) {
+    else if (reading <= offset - ENCODER_STEPS_PER_CLICK) {
         navigation->selectPrev();
         offset = reading;
     }
-    if (!digitalRead(53)) {
+    if (encoder_btn->isPressed()) {
         if (!didPress) {
-        navigation->dispatchPress();
-        didPress = true;
-        delay(100);
+            navigation->dispatchPress();
+            didPress = true;
         }
     }
     else if (didPress) {
         didPress = false;
-        delay(100);
     }
+}
+
+void UIController::displayCurrentMenu() {
+    offset = encoder->read();
+    navigation->display();
 }

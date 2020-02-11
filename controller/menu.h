@@ -113,6 +113,8 @@ class NavigationController {
     void selectPrev();
 
     void goHome();
+
+    void display();
   private:
     LCDScreen* screen;
     Menu* currentMenu;

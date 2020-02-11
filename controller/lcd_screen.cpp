@@ -36,7 +36,7 @@ void LCDScreen::showSplash() {
   update();
 }
 
-void LCDScreen::printCentered(const char *string, bool centerVertically, uint16_t y_offset) {
+int16_t LCDScreen::printCentered(const char *string, bool centerVertically, uint16_t y_offset) {
   int16_t x, y;
   uint16_t w, h;
   getTextBounds(string,0,0,&x,&y,&w,&h);
@@ -49,12 +49,14 @@ void LCDScreen::printCentered(const char *string, bool centerVertically, uint16_
   }
   setCursor(x,y);
   println(string);
+  return y + h;
 }
 
-void LCDScreen::printCentered(const String &string, bool centerVertically, uint16_t y_offset) {
+int16_t LCDScreen::printCentered(const String &string, bool centerVertically, uint16_t y_offset) {
   if (string.length() != 0) {
-    printCentered(const_cast<char *>(string.c_str()), centerVertically, y_offset);
+    return printCentered(const_cast<char *>(string.c_str()), centerVertically, y_offset);
   }
+  return 0;
 }
 
 // Some remapping

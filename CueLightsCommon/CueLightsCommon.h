@@ -27,6 +27,9 @@
 #define CLC_PKTTYPE_STATUS 0b010
 #define CLC_PKTTYPE_ACK 0b011
 
+// button constants
+#define BUTTON_DEBOUNCE_TIME 20 // ms
+
 enum CLCButtonType {
     ACTIVE_HIGH,
     ACTIVE_LOW,
@@ -35,8 +38,15 @@ enum CLCButtonType {
 
 class CLCDebouncedButton {
 public:
-    CLCDebouncedButton(unsigned int pin_in, CLCButtonType type_in);
+    CLCDebouncedButton(unsigned int pin_in, CLCButtonType type_in = ACTIVE_HIGH, int debounceTime_in = BUTTON_DEBOUNCE_TIME);
+    bool isPressed();
+    bool wasReleased();
 private:
+    int debounceTime;
+    bool state = false;
+    bool lastAcceptedState = false;
+    bool awaitingRelease = true;
+    unsigned long lastStateUpdate = 0;
     unsigned int pin;
     CLCButtonType type;
 };
