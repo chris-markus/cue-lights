@@ -9,6 +9,9 @@
 
 #define STR_PRESSFORMENU "Press for main menu"
 
+#define STR_ON "On"
+#define STR_OFF "Off"
+
 // menu strings:
 #define STR_MENU_MAIN "Main Menu"
 

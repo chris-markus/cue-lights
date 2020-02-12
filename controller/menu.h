@@ -28,11 +28,13 @@ class MenuItemBase {
     MenuItemBase(const char* nameInpt, bool showNum = true);
 
     // virtual methods
+    // override both of these if your item has a custom appearance
     virtual void renderItem(LCDScreen* screen, int16_t yPos, bool selected = false);
+    virtual uint16_t getHeight(LCDScreen*);
+
     virtual void dispatchPress() { /*do nothing*/ };
     virtual MenuItemType getItemType() { return MISC; };
     virtual bool getSelectable() { return true; };
-    virtual uint16_t getHeight(LCDScreen*);
 
     // getters and setters:
     const char* getName() {return name; };
@@ -59,19 +61,38 @@ class MenuItem : public MenuItemBase {
     void (*onPress)();
 };
 
+// Kinda depricated
 class BackButton: public MenuItemBase {
   public:
     BackButton():MenuItemBase(STR_BACK_BUTTON, /*showIndex =*/false) { /* empty*/ };
     virtual MenuItemType getItemType() { return BUTTON_BACK; };
 };
 
+class Divider: public MenuItemBase {
+  public:
+    Divider():MenuItemBase("-", /*showIndex =*/false) { /* empty*/ };
+    virtual bool getSelectable() { return false; };
+    virtual MenuItemType getItemType() { return MISC; };
+    virtual void renderItem(LCDScreen* screen, int16_t yPos, bool selected = false);
+    virtual uint16_t getHeight(LCDScreen*);
+};
+
 class HeaderItem: public MenuItemBase {
   public:
-    HeaderItem(const char* nameInpt):MenuItemBase(nameInpt, /*showIndex =*/false){ /* empty */ };
-    virtual bool getSelectable() { return false; };
+    HeaderItem(const char* nameInpt, void (*onPressCb)() = NULL, bool isBackButton_in = false);
+    virtual bool getSelectable() { return true; };
 
     virtual void renderItem(LCDScreen* screen, int16_t yPos, bool selected = false);
     virtual uint16_t getHeight(LCDScreen*);
+    virtual MenuItemType getItemType() { return isBackButton?BUTTON_BACK:MISC; };
+    bool getIsPressable();
+    void dispatchPress();
+
+  private:
+    static const int extraPadding = 12;
+    bool isBackButton = false;
+    // callback function
+    void (*onPress)();
 };
 
 class Menu: public MenuItemBase {

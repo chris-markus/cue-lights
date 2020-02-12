@@ -96,11 +96,27 @@ void MenuItem::dispatchPress() {
 // HeaderItem
 // =====================================================
 
+HeaderItem::HeaderItem(const char* nameInpt, void (*onPressCb)(), bool isBackButton_in)
+  : MenuItemBase(nameInpt, /*showIndex = */false) {
+  isBackButton = isBackButton_in;
+  onPress = onPressCb;
+}
+
 void HeaderItem::renderItem(LCDScreen* screen, int16_t yPos, bool select = false) {
-  int16_t yStart = yPos;
-  yPos += MENU_ITEM_PADDING + 8;
+  screen->setTextColor(WHITE);
   int16_t x,y;
   uint16_t w,h;
+  screen->setCursor(MENU_ITEM_PADDING, yPos + MENU_ITEM_PADDING);
+  screen->getTextBounds(isBackButton?STR_BACK_BUTTON:STR_CLOSE_BUTTON, 
+                        MENU_ITEM_PADDING, 
+                        yPos + MENU_ITEM_PADDING, &x, &y, &w, &h);
+  if (select) {
+    screen->setTextColor(BLACK);
+    screen->fillRect(0, yPos, w + MENU_ITEM_PADDING + 1, h + MENU_ITEM_PADDING + 1, WHITE);
+  }
+  screen->print(isBackButton?STR_BACK_BUTTON:STR_CLOSE_BUTTON);
+  screen->setTextColor(WHITE);
+  yPos += MENU_ITEM_PADDING + extraPadding;
   screen->getTextBounds(name,MENU_ITEM_PADDING,0,&x,&y,&w,&h);
   screen->printCentered(name, false, yPos);
   yPos += h + MENU_ITEM_PADDING;
@@ -111,8 +127,31 @@ uint16_t HeaderItem::getHeight(LCDScreen* screen) {
   int16_t x,y;
   uint16_t w,h;
   screen->getTextBounds(name,MENU_ITEM_PADDING,0,&x,&y,&w,&h);
-  h += MENU_ITEM_PADDING * 2 + 8;
+  h += MENU_ITEM_PADDING * 2 + extraPadding;
   return h;
+}
+
+bool HeaderItem::getIsPressable() {
+  return onPress != NULL;
+}
+
+void HeaderItem::dispatchPress() {
+  if (onPress != NULL) {
+    onPress();
+  }
+}
+
+// =====================================================
+// Divider
+// =====================================================
+
+void Divider::renderItem(LCDScreen* screen, int16_t yPos, bool select = false) {
+  screen->drawFastHLine(0,yPos,screen->width(),WHITE);
+  screen->drawFastHLine(0,yPos+MENU_ITEM_PADDING*2,screen->width(),WHITE);
+}
+
+uint16_t Divider::getHeight(LCDScreen* screen) {
+  return 2*MENU_ITEM_PADDING;
 }
 
 // =====================================================
@@ -186,10 +225,20 @@ void Menu::renderItem(LCDScreen* screen, int16_t yPos, bool selected) {
 // show it in the middle of the screen if not at the top or bottom
 // TODO: could do this without calculating the total offset each time
 void Menu::selectIndex(uint8_t index) {
-  // TODO: Come up with a better solution:
-  // this dies if there is only a header item..
+  // if the item isn't selectable go to the next or last depending on the context
   if (!items[index]->getSelectable()) {
-    index++;
+    if (selectedIndex > index) {
+      if (index > 0)
+        index--;
+      else if(index < length-1)
+        index++;
+    }
+    else if (selectedIndex <= index) {
+      if (index < length-1)
+        index++;
+      else if (index > 0)
+        index--;
+    }
   }
   if (index >= 0 && index < length) {
     selectedIndex = index;
@@ -238,13 +287,13 @@ void Menu::setParentMenu(Menu* parent) {
   parentMenu = parent;
   if (parentMenu != NULL && length > 0 
       && length < MAX_MENU_ITEMS - 1 
-      && items[0]->getItemType() != BUTTON_BACK) 
+      && items[0]->getItemType() != BUTTON_BACK)
   {
     for (int i=length; i>0;i--) {
       items[i] = items[i-1];
     }
     length++;
-    items[0] = new BackButton();
+    items[0] = new HeaderItem(name, NULL, true);//new BackButton();
   }
 }
 

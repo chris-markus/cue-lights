@@ -11,7 +11,7 @@
 #include "Arduino.h"
 
 #define FLASH_DELAY_ON 1000
-#define FLASH_DELAY_OFF 500
+#define FLASH_DELAY_OFF 300
 
 enum Color {
     OFF,
@@ -38,8 +38,9 @@ private:
     int num_LED;
     int* pins;
     uint8_t** states;
-    unsigned long* lastStateUpdate;
-    bool* flashStates;
+    unsigned long lastFlashUpdate;
+    bool flashState = true;
+    bool* flashing;
 };
 
 #endif

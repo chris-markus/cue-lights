@@ -8,6 +8,7 @@
 #define SETTINGS_H
 
 #define SETTING_PANEL_BRIGHTNESS "Panel Brightness"
+#define SETTING_FLASH_STANDBY "Flash on Standby"
 
 enum SettingType {
     BOOL,

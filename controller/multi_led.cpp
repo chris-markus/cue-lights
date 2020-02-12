@@ -14,12 +14,10 @@ MultiLED::MultiLED(int rPin_in, int gPin_in, int bPin_in, int count, int* pins_i
     num_LED = count;
     pins = new int[num_LED];
     states = new uint8_t* [num_LED];
-    flashStates = new bool[num_LED];
-    lastStateUpdate = new unsigned long[num_LED];
+    flashing = new bool[num_LED];
     for (int i=0; i < num_LED; i++) {
         states[i] = new uint8_t[3];
-        flashStates[i] = true;
-        lastStateUpdate[i] = 0;
+        flashing[i] = false;
         pins[i] = pins_in[i];
         states[i][0] = 0;
         states[i][1] = 0;
@@ -37,24 +35,30 @@ void MultiLED::setup() {
 }
 
 void MultiLED::tick() {
+    bool flash = Settings::getInstance()->getSettingWithName(SETTING_FLASH_STANDBY)->value;
+    if (flash && flashState && millis() > lastFlashUpdate + FLASH_DELAY_ON || 
+        !flashState && millis() > lastFlashUpdate + FLASH_DELAY_OFF) {
+        flashState = !flashState;
+        lastFlashUpdate = millis();
+    }
     static int i = 0;
     digitalWrite(pins[i], LOW);
     i = (i + 1) % num_LED;
-    analogWrite(rPin, states[i][0]*flashStates[i]);
-    analogWrite(gPin, states[i][1]*flashStates[i]);
-    analogWrite(bPin, states[i][2]*flashStates[i]);
+    bool flashOn = !flash || !flashing[i] || flashState;
+    analogWrite(rPin, states[i][0]*flashOn);
+    analogWrite(gPin, states[i][1]*flashOn);
+    analogWrite(bPin, states[i][2]*flashOn);
     digitalWrite(pins[i], HIGH);
 }
 
 void MultiLED::setColor(int index, int r, int g, int b) {
-    //flashStates[index] = true;
     int brightness = 100;
     Setting* s = Settings::getInstance()->getSettingWithName(SETTING_PANEL_BRIGHTNESS);
     if (s != NULL) {
         brightness = s->value;
     }
     if (index >=0 && index < num_LED) {
-        // add 1 if the brightness is not supposed to be 0
+        // add 1 if the brightness is not actually supposed to be 0
         states[index][0] = r*brightness/100 + (int)(r>0&&r<255);
         states[index][1] = g*brightness/100 + (int)(g>0&&g<255);
         states[index][2] = b*brightness/100 + (int)(b>0&&b<255);
@@ -81,15 +85,11 @@ void MultiLED::setColor(int index, Color color, float intensity) {
 
 // TODO: this should really just be done in the tick function
 void MultiLED::flash(int index) {
-    if (flashStates[index] && millis() > lastStateUpdate[index] + FLASH_DELAY_ON || 
-        !flashStates[index] && millis() > lastStateUpdate[index] + FLASH_DELAY_OFF) {
-        flashStates[index] = !flashStates[index];
-        lastStateUpdate[index] = millis();
-    }
+    flashing[index] = true;
 }
 
 void MultiLED::stopFlash(int index) {
-    flashStates[index] = true;
+    flashing[index] = false;
 }
 
 void MultiLED::allOff() {
