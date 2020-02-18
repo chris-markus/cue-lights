@@ -35,7 +35,8 @@ void MultiLED::setup() {
 }
 
 void MultiLED::tick() {
-    bool flash = Settings::getInstance()->getSettingWithName(SETTING_FLASH_STANDBY)->value;
+    bool flash = (bool)(Settings::getInstance()->getSettingWithName(SETTING_FLASH_STANDBY)->value);
+    //Serial.println(Settings::getInstance()->getSettingWithName(SETTING_FLASH_STANDBY)->value);
     if (flash && flashState && millis() > lastFlashUpdate + FLASH_DELAY_ON || 
         !flashState && millis() > lastFlashUpdate + FLASH_DELAY_OFF) {
         flashState = !flashState;
@@ -51,7 +52,7 @@ void MultiLED::tick() {
     digitalWrite(pins[i], HIGH);
 }
 
-void MultiLED::setColor(int index, int r, int g, int b) {
+void MultiLED::setColor(int index, uint8_t r, uint8_t g, uint8_t b) {
     int brightness = 100;
     Setting* s = Settings::getInstance()->getSettingWithName(SETTING_PANEL_BRIGHTNESS);
     if (s != NULL) {
@@ -59,9 +60,9 @@ void MultiLED::setColor(int index, int r, int g, int b) {
     }
     if (index >=0 && index < num_LED) {
         // add 1 if the brightness is not actually supposed to be 0
-        states[index][0] = r*brightness/100 + (int)(r>0&&r<255);
-        states[index][1] = g*brightness/100 + (int)(g>0&&g<255);
-        states[index][2] = b*brightness/100 + (int)(b>0&&b<255);
+        states[index][0] = r*brightness/100 + (uint8_t)(r>0&&r<255);
+        states[index][1] = g*brightness/100 + (uint8_t)(g>0&&g<255);
+        states[index][2] = b*brightness/100 + (uint8_t)(b>0&&b<255);
     }
 }
 
@@ -81,6 +82,10 @@ void MultiLED::setColor(int index, Color color, float intensity) {
             break;
     }
     setColor(index, r, g, b);
+}
+
+void MultiLED::setColor(int index, RGBColor color) {
+    setColor(index, color.r, color.g, color.b);
 }
 
 // TODO: this should really just be done in the tick function
@@ -103,7 +108,7 @@ void MultiLED::allOff() {
     }
 }
 
-void MultiLED::getColor(int index, int* r, int* g, int* b) {
+void MultiLED::getColor(int index, uint8_t* r, uint8_t* g, uint8_t* b) {
     if (index >=0 && index < num_LED) {
         *r = states[index][0];
         *g = states[index][1];

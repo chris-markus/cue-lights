@@ -10,38 +10,40 @@
 
 Settings* Settings::instance = NULL; 
 
+Settings* Settings::alloc(int numSettings = 0) {
+    if (instance) {
+        delete[] instance->settings;
+        delete instance;
+    }
+    instance = new Settings;
+    instance->maxSettings = numSettings;
+    instance->settings = new Setting*[numSettings];
+    return instance;
+}
+
 Settings* Settings::getInstance()  {
     if (!instance)
-    instance = new Settings;
+        alloc(DEFAULT_NUM_SETTINGS);
     return instance;
 }
 
 Setting* Settings::getSettingWithName(const char* name) {
-    Setting* iter = firstSetting;
-    while (iter != NULL && strcmp(iter->name, name) != 0) {
-        iter = iter->next;
+    for (int i=0; i<count; i++) {
+        if (strcmp(settings[i]->name, name) == 0) {
+            return settings[i];
+        }
     }
-    return iter;
+    return NULL;
 }
 
-void Settings::add(Setting* s) {
-    if (count > 0) {
-        getLast()->next = s;
+bool Settings::add(Setting* s) {
+    if (count < maxSettings) {
+        settings[count++] = s;
+        return true;
     }
-    else {
-        firstSetting = s;
-    }
-    count++;
+    return false;
 }
 
 void Settings::save(Setting* s) {
     // TODO: Save to EEPROM
-}
-
-Setting* Settings::getLast() {
-    Setting* iter = firstSetting;
-    while (iter->next != NULL) {
-        iter = iter->next;
-    }
-    return iter;
 }

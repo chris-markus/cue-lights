@@ -18,6 +18,8 @@ CLCDebouncedButton::CLCDebouncedButton(unsigned int pin_in, CLCButtonType type_i
         case ACTIVE_LOW_PULLUP:
             pinMode(pin, INPUT_PULLUP);
     }
+    state = digitalRead(pin);
+    lastAcceptedState = state;
 }
 
 bool CLCDebouncedButton::isPressed() {

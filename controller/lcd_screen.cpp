@@ -36,6 +36,7 @@ void LCDScreen::showSplash() {
   update();
 }
 
+// TODO: make this work with multiple lines
 int16_t LCDScreen::printCentered(const char *string, bool centerVertically, uint16_t y_offset) {
   int16_t x, y;
   uint16_t w, h;

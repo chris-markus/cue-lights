@@ -10,24 +10,79 @@
 #include <stdint.h>
 #include "Arduino.h"
 
+#define CHANNELS_PER_STATION 3
+
 // some global constants
 #define CLC_DEFAULT_BAUD_RATE 115200
+#define SEND_BUFFER_LEN 200
 
-// serial comms packets
-#define CLC_PKT_START 0xAD
-#define CLC_PKT_END 0xAB
+// packet definitions... very loosely based on DMX packet principles
+// inspired by http://github.com/mathertel/DmxSerial
+#define CLC_PKT_START 's'
+#define CLC_PKT_END 'e'
 #define CLC_DATA_LEN 3
 
-// masks
+typedef uint8_t CLCPacketType;
+
+#define CONTROL 0x11
+#define STATUS 0xCC
+#define RESPONSE 0xEE
+
+
+// masks 
+/*
 #define CLC_MASK_ADDRESS 0b11111000
 #define CLC_MASK_TYPE 0b00000111
+*/
 
 // packet types
+/*
 #define CLC_PKTTYPE_CONTROL 0b001
 #define CLC_PKTTYPE_STATUS 0b010
 #define CLC_PKTTYPE_ACK 0b011
+*/
 
-// button constants
+// delays and timeouts
+#define CLC_RESPONSE_DELAY 100 // ms
+#define CLC_STATE_SWITCH_DELAY 1 // ms
+#define CLC_COLOR_SEND_DELAY 1 // ms + 1
+
+enum SerialState {
+    WILL_RECIEVE,
+    RECIEVING,
+    WILL_SEND,
+    SENDING
+};
+
+class CLCSerialClass {
+public:
+    CLCSerialClass(HardwareSerial *ser) { serial = ser; };
+    void init(bool is_master, int mode_pin_in);
+    int begin(int baud_rate);
+    void setAddress(uint8_t address) { int_address = address; };
+    void write(const char* buffer, int len);
+    bool read(char& byte);
+    void tick();
+private:
+    int mode_pin;
+    unsigned long lastStateChange = 0;
+    char sendBuffer[SEND_BUFFER_LEN];
+    int bufferLen = 0;
+    bool master = true;
+    uint8_t int_address;
+    uint8_t msgLen;
+    SerialState state;
+    HardwareSerial *serial;
+};
+
+// General Structs and enums
+struct RGBColor {
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
+};
+
+// buttons
 #define BUTTON_DEBOUNCE_TIME 20 // ms
 
 enum CLCButtonType {
@@ -43,41 +98,13 @@ public:
     bool wasReleased();
 private:
     int debounceTime;
-    bool state = false;
-    bool lastAcceptedState = false;
+    bool state;
+    bool lastAcceptedState;
     bool awaitingRelease = true;
     unsigned long lastStateUpdate = 0;
     unsigned int pin;
     CLCButtonType type;
 };
-
-// packet definition
-// [Start byte][Address bits (5) | packet type bits (3)][Data][Data][Data][Stop byte]
-
-/*
-class CLCSerial {
-    public:
-        CLCSerial();
-        int begin(uint8_t address, int baud_rate);
-        void setAddress(uint8_t address);
-        CLCPacketType asyncRecieve(char* msg);
-    private:
-        uint8_t int_address;
-        char* pktBuffer;
-        uint8_t msgLen;
-        bool int_isMessageReady();
-        bool int_sendMessage(char* msg, CLCPacketType type);
-        bool int_isValidPacket(char* pkt);
-        bool int_isAddressedToMe();
-        bool int_getPktData(char* pkt, char* data);
-};
-
-enum CLCPacketType{
-    NONE,
-    CONTROL,
-    STATUS,
-    ACK,
-}*/
 
 namespace clc {
     void flashLED(int pin, unsigned int delay, uint8_t brightness);
