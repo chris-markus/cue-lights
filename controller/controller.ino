@@ -32,6 +32,7 @@
 CLCDebouncedButton encoderButton(53, ACTIVE_LOW_PULLUP);
 LCDScreen screen(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire);
 Encoder encoder(18,19);
+CLCSerialClass CLCSerial(&Serial2);
 
 // global status
 const int statusLEDPins[3] = {5,4,3};
@@ -41,8 +42,6 @@ enum GlobalStatusEnum {
   FAULT,
 };
 GlobalStatusEnum GlobalStatus = BUSY;
-
-CLCSerialClass CLCSerial(&Serial2);
 
 const int ledPins[MAX_STATIONS + 1] = {42,40,38,36,34,32,30,28,26,24,22};
 MultiLED channelLEDs(11, 10, 9, MAX_STATIONS + 1, ledPins); // rPin, gPin, bPin, numLED, pins
@@ -373,10 +372,6 @@ void setup() {
   interface = new UIController(&encoder, &encoderButton, navigation);
 
   birthTime = millis();
-
-  for (int i=0; i<MAX_STATIONS; i++) {
-    stations[i].setConnStatus(CONNECTED);
-  }
 }
 
 bool initialSet = false;
@@ -429,8 +424,6 @@ void updateRemote() {
     case STATION_REQUEST:
       if (lastStatus != STATION_REQUEST) {
         lastRequest = millis();
-        Serial.print("requesting ");
-        Serial.println(stations[responseStation].getAddress());
         sendStationRequest(stations[responseStation].getAddress());
       }
       else {
@@ -498,7 +491,7 @@ bool getStationResponse(uint8_t station) {
   Serial.print((uint8_t)(thisByte) == RESPONSE);
   Serial.println();*/
   if (CLCSerial.read(thisByte)) {
-    Serial.println("got resp");
+    //Serial.println("got resp");
     if ((lastByte == station) && ((uint8_t)(thisByte) == RESPONSE)) {
       lastByte = thisByte;
       return true;
