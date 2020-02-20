@@ -5,7 +5,6 @@
 // =====================================================
 
 #include <CueLightsCommon.h>
-#include <SoftwareSerial.h>
 
 #define NUM_SWITCHES 4
 
@@ -22,16 +21,13 @@ CLCDebouncedButton switches[NUM_SWITCHES] = {CLCDebouncedButton(12, ACTIVE_LOW_P
 CLCSerialClass CLCSerial(&Serial);
 
 void setup() {
-  //CLCSerial.init(false, 2);
   pinMode(transmitPin, OUTPUT);
   digitalWrite(transmitPin, LOW);
   Serial.begin(CLC_DEFAULT_BAUD_RATE);
-  // put your setup code here, to run once:
   for (int i=0; i<3; i++) {
     pinMode(ledPins[i][0], OUTPUT);
     pinMode(ledPins[i][1], OUTPUT);
   }
-  pinMode(13, OUTPUT);
 }
 
 enum RecieveState {
@@ -46,33 +42,24 @@ enum RecieveState {
 uint8_t ledColor[3] = {0,0,0};
 
 void loop() {
-  //static char buff[CLC_DATA_LEN];
-  static bool awaitingAddr = false;
   static bool addressedToMe = false;
   static RecieveState state = STATE_START;
   static CLCPacketType type;
-  //static int len = 0;
   static int dataCounter = 0;
   static bool colorValid = true;
 
   char newChar;
   if (Serial.available()) {
     newChar = Serial.read();
-    //CLCSerial.write(newChar, 1);
     switch(state) {
       case STATE_START:
-        //digitalWrite(13, HIGH);
-        //Serial.println("start");
         if (((uint8_t)(newChar)) == CLC_PKT_START) {
-          //len = 0;
-          awaitingAddr = true;
           addressedToMe = false;
           dataCounter = 0;
           state = STATE_ADDRESS;
         }
         break;
       case STATE_ADDRESS:
-        //Serial.println("addr");
         addressedToMe = (((uint8_t)(newChar)) == getAddress());
         state = STATE_TYPE;
         if (addressedToMe) {
@@ -89,9 +76,7 @@ void loop() {
         }
         break;
       case STATE_DATA:
-        //Serial.println("data");
-        //digitalWrite(13, addressedToMe);
-        if (addressedToMe) {
+        if (addressedToMe && dataCounter < CLC_DATA_LEN) {
           ledColor[dataCounter] = newChar;
         }
         dataCounter++;
@@ -101,7 +86,6 @@ void loop() {
         break;
       case STATE_STATUS:
         if (addressedToMe) {
-          digitalWrite(13, HIGH);
           digitalWrite(transmitPin, HIGH);
           delay(CLC_STATE_SWITCH_DELAY + 1);
           char buf[4];
@@ -114,11 +98,9 @@ void loop() {
           digitalWrite(transmitPin, LOW);
           delay(CLC_STATE_SWITCH_DELAY);
         }
-        state = STATE_END;
+        state = STATE_START;
         break;
       case STATE_END:
-        //Serial.println("end");
-        digitalWrite(13, LOW);
         colorValid = true;
         addressedToMe = false;
         if(((uint8_t)(newChar)) == CLC_PKT_END) {
@@ -130,7 +112,6 @@ void loop() {
   if (colorValid) {
     updateLEDs();
   }
-  //Serial.println(getAddress());
 }
 
 uint8_t getAddress() {

@@ -32,6 +32,7 @@ void UIController::tick() {
     else if (didPress) {
         didPress = false;
     }
+    navigation->tick();
 }
 
 void UIController::displayCurrentMenu() {

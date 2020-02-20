@@ -15,18 +15,15 @@ void CLCSerialClass::init(bool is_master, int mode_pin_in) {
         state = WILL_SEND;
     else 
         state = WILL_RECIEVE;
-}
-
-int CLCSerialClass::begin(int baud_rate) {
-    serial->begin(baud_rate);
-    return 0;
+    isInitialized = true;
 }
 
 void CLCSerialClass::tick() {
-    //serial->println("Hi!");
+    if (!isInitialized) {
+        return;
+    }
     switch (state) {
         case WILL_RECIEVE:
-            //Serial.println("will recieve");
             if (millis() > lastStateChange + CLC_STATE_SWITCH_DELAY) {
                 state = RECIEVING;
                 lastStateChange = millis();
@@ -62,7 +59,6 @@ void CLCSerialClass::write(const char* buffer, int len) {
     }
     else {
         state = WILL_SEND;
-        //Serial.println("high");
         digitalWrite(mode_pin, HIGH);
         lastStateChange = millis();
 
@@ -74,20 +70,13 @@ void CLCSerialClass::write(const char* buffer, int len) {
 
 bool CLCSerialClass::read(char& byte) {
     if (state == RECIEVING) {
-        //Serial.println("check");
         if (serial->available()) {
             byte = serial->read();
             return true;
         }
     }
     else {
-        //Serial.println("not recieving");
-        // flush the buffer
-        /*while(serial->available()) {
-            serial->read();
-        }*/
         state = WILL_RECIEVE;
-        //Serial.println("low");
         digitalWrite(mode_pin, LOW);
         lastStateChange = millis();
     }

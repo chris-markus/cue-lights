@@ -10,7 +10,7 @@
 
 Settings* Settings::instance = NULL; 
 
-Settings* Settings::alloc(int numSettings = 0) {
+Settings* Settings::alloc(int numSettings, EEPROMClass *rom) {
     if (instance) {
         delete[] instance->settings;
         delete instance;
@@ -18,12 +18,13 @@ Settings* Settings::alloc(int numSettings = 0) {
     instance = new Settings;
     instance->maxSettings = numSettings;
     instance->settings = new Setting*[numSettings];
+    instance->eeprom = rom;
     return instance;
 }
 
 Settings* Settings::getInstance()  {
     if (!instance)
-        alloc(DEFAULT_NUM_SETTINGS);
+        alloc(DEFAULT_NUM_SETTINGS, &EEPROM);
     return instance;
 }
 
@@ -39,11 +40,15 @@ Setting* Settings::getSettingWithName(const char* name) {
 bool Settings::add(Setting* s) {
     if (count < maxSettings) {
         settings[count++] = s;
+        uint8_t readVal = eeprom->read(s->id);
+        if (readVal <= s->max && readVal >= s->min) {
+            s->value = readVal;
+        }
         return true;
     }
     return false;
 }
 
 void Settings::save(Setting* s) {
-    // TODO: Save to EEPROM
+    eeprom->update(s->id, s->value);
 }

@@ -12,6 +12,8 @@
 #include <CueLightsCommon.h>
 #include "constants.h"
 
+#define STATION_DISCONNECT_TIMEOUT 2000 //ms
+
 enum ConnectionStatus {
     CONNECTED,
     DISCONNECTED,
@@ -29,11 +31,14 @@ public:
     uint8_t getAddress() { return address; };
     void setConnStatus(ConnectionStatus status_in) { connectionStatus = status_in; };
     ConnectionStatus getConnStatus() { return connectionStatus; };
+    void setLastSeen() { lastSeen = millis(); };
+    unsigned long getLastSeen() { return lastSeen; };
     void setCueStatus(CueStatus status_in);
     CueStatus getCueStatus() { return cueStatus; };
     void setColor(RGBColor color_in) { color = color_in; };
     RGBColor getColor() { return color; };
 private:
+    unsigned long lastSeen = 0;
     uint8_t address;
     RGBColor color;
     ConnectionStatus connectionStatus = DISCONNECTED;

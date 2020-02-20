@@ -7,33 +7,27 @@
 #ifndef SETTINGS_H
 #define SETTINGS_H
 
+#include <Arduino.h>
+#include <EEPROM.h>
+
 #define DEFAULT_NUM_SETTINGS 10
 
 #define SETTING_PANEL_BRIGHTNESS "Panel Brightness"
+#define SETTING_PANEL_BRIGHTNESS_ID 0
 #define SETTING_FLASH_STANDBY "Flash on Standby"
+#define SETTING_FLASH_STANDBY_ID 1
 
 enum SettingType {
     BOOL,
     VALUE
 };
 
-/*class Setting {
-public:
-    Setting(const char* name_in, int defaultVal) { name = name_in; value = defaultVal; };
-    Setting* getNext() {return next; };
-    virtual int getVal() { return value; };
-    virtual void setVal(int newVal) { value = newVal; };
-    void adjust();
-private:
-    Setting* next = NULL;
-    const char* name;
-    int value;
-};*/
 struct Setting {
     const char* name;
-    int value;
-    int max;
-    int min;
+    uint8_t id;
+    uint8_t value;
+    uint8_t max;
+    uint8_t min;
     SettingType type;
 };
 
@@ -49,8 +43,9 @@ private:
 
     int count = 0;
     int maxSettings = DEFAULT_NUM_SETTINGS;
+    EEPROMClass *eeprom;
 public:
-    static Settings *alloc(int num_settings = 0);
+    static Settings *alloc(int num_settings, EEPROMClass* rom);
     static Settings *getInstance();
     bool add(Setting* s);
     void save(Setting* s);

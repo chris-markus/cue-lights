@@ -28,24 +28,10 @@ typedef uint8_t CLCPacketType;
 #define STATUS 0xCC
 #define RESPONSE 0xEE
 
-
-// masks 
-/*
-#define CLC_MASK_ADDRESS 0b11111000
-#define CLC_MASK_TYPE 0b00000111
-*/
-
-// packet types
-/*
-#define CLC_PKTTYPE_CONTROL 0b001
-#define CLC_PKTTYPE_STATUS 0b010
-#define CLC_PKTTYPE_ACK 0b011
-*/
-
 // delays and timeouts
-#define CLC_RESPONSE_DELAY 100 // ms
+#define CLC_RESPONSE_DELAY 50 // ms
 #define CLC_STATE_SWITCH_DELAY 1 // ms
-#define CLC_COLOR_SEND_DELAY 1 // ms + 1
+#define CLC_COLOR_SEND_DELAY 2 // ms + 1
 
 enum SerialState {
     WILL_RECIEVE,
@@ -58,12 +44,12 @@ class CLCSerialClass {
 public:
     CLCSerialClass(HardwareSerial *ser) { serial = ser; };
     void init(bool is_master, int mode_pin_in);
-    int begin(int baud_rate);
     void setAddress(uint8_t address) { int_address = address; };
     void write(const char* buffer, int len);
     bool read(char& byte);
     void tick();
 private:
+    bool isInitialized = false;
     int mode_pin;
     unsigned long lastStateChange = 0;
     char sendBuffer[SEND_BUFFER_LEN];

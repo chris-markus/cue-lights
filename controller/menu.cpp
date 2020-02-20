@@ -96,8 +96,9 @@ void MenuItem::dispatchPress() {
 // HeaderItem
 // =====================================================
 
-HeaderItem::HeaderItem(const char* nameInpt, void (*onPressCb)(), bool isBackButton_in)
-  : MenuItemBase(nameInpt, /*showIndex = */false) {
+HeaderItem::HeaderItem(const char* nameInpt, const char* actionButtonStr, void (*onPressCb)(), bool isBackButton_in)
+: MenuItemBase(nameInpt, /*showIndex = */false) {
+  actionButton = actionButtonStr;
   isBackButton = isBackButton_in;
   onPress = onPressCb;
 }
@@ -107,14 +108,14 @@ void HeaderItem::renderItem(LCDScreen* screen, int16_t yPos, bool select = false
   int16_t x,y;
   uint16_t w,h;
   screen->setCursor(MENU_ITEM_PADDING, yPos + MENU_ITEM_PADDING);
-  screen->getTextBounds(isBackButton?STR_BACK_BUTTON:STR_CLOSE_BUTTON, 
+  screen->getTextBounds(actionButton, 
                         MENU_ITEM_PADDING, 
                         yPos + MENU_ITEM_PADDING, &x, &y, &w, &h);
   if (select) {
     screen->setTextColor(BLACK);
     screen->fillRect(0, yPos, w + MENU_ITEM_PADDING + 1, h + MENU_ITEM_PADDING + 1, WHITE);
   }
-  screen->print(isBackButton?STR_BACK_BUTTON:STR_CLOSE_BUTTON);
+  screen->print(actionButton);
   screen->setTextColor(WHITE);
   yPos += MENU_ITEM_PADDING + extraPadding;
   screen->getTextBounds(name,MENU_ITEM_PADDING,0,&x,&y,&w,&h);
@@ -158,48 +159,37 @@ uint16_t Divider::getHeight(LCDScreen* screen) {
 // Menu
 // =====================================================
 
-Menu::Menu(const char* nameInpt, uint8_t count, ...) 
-  : MenuItemBase(nameInpt) {
-  va_list args;
-  va_start(args, count);
+Menu::Menu(uint8_t count, const char* nameInpt, va_list ap)
+: MenuItemBase(nameInpt) {
+  int currentIndex = 0;
+  items = new MenuItemBase*[count];
   for (uint8_t i=0; i < count; i++) {
-      MenuItemBase* tempPtr = va_arg(args, MenuItemBase*);
+      MenuItemBase* tempPtr = va_arg(ap, MenuItemBase*);
       // doing it this way protects us a little more
       if (tempPtr != NULL) {
-          items[length] = tempPtr;
-          length++;
+        items[length] = tempPtr;
+
+        if (items[length]->getShowIndex()) {
+          currentIndex++;
+          items[length]->setIndex(currentIndex);
+        }
+        if (selectedIndex != -1 && items[length]->getSelectable()) {
+          selectedIndex = length;
+        }
+
+        // if the item is a menu, set this menu as its parent
+        if (items[length]->getItemType() == MENU) {
+          ((Menu*)(items[length]))->setParentMenu(this);
+        }
+
+        length++;
       }
       else {
           break;
       }
   }
-  va_end(args);
-  commonInit();
-}
-
-Menu::Menu(const char* nameInpt, uint8_t count, MenuItemBase** itemsIn)
-  : MenuItemBase(nameInpt) {
-  for (uint8_t i=0; i<count; i++) {
-    items[i] = itemsIn[i];
-  }
-  length = count;
-  commonInit();
-}
-
-void Menu::commonInit() {
-  int currentIndex = 0;
-  for (int i=0; i<length; i++) {
-    // set the index of each item:
-    if (items[i]->getShowIndex()) {
-      currentIndex++;
-      items[i]->setIndex(currentIndex);
-    }
-
-    // if the item is a menu, set this menu as its parent
-    if (items[i]->getItemType() == MENU) {
-      ((Menu*)(items[i]))->setParentMenu(this);
-    }
-  }
+  // only as a last resort
+  if (selectedIndex == -1) selectedIndex = 0;
 }
 
 void Menu::bindToScreen(LCDScreen* scrn) {
@@ -293,12 +283,20 @@ void Menu::setParentMenu(Menu* parent) {
       items[i] = items[i-1];
     }
     length++;
-    items[0] = new HeaderItem(name, NULL, true);//new BackButton();
+    items[0] = new HeaderItem(name, STR_BACK_BUTTON ,NULL, true);//new BackButton();
   }
 }
 
 Menu* Menu::getParentMenu() {
   return parentMenu;
+}
+
+bool Menu::requiresUpdate() {
+  if (updateRequired) {
+    updateRequired = false;
+    return true;
+  }
+  return false;
 }
 
 // --------------------------------
@@ -312,11 +310,119 @@ void Menu::drawAtPos(int16_t scrollPos) {
     if (yOffset + itemHeight >= 0 && yOffset <= screen->height()) {
       bool selected = selectedIndex == i;
       items[i]->renderItem(screen,yOffset,selected);
+      // if any onscreen items require an update, set the flag
+      updateRequired = updateRequired | items[i]->requiresUpdate();
     }
     yOffset += itemHeight;
   }
   screen->display();
 }
+
+// =====================================================
+// FullScreenDisplay
+// =====================================================
+
+void FullScreenDisplay::selectIndex(uint8_t index) {
+  screen->clear();
+  if (items[index]->getSelectable()) {
+    selectedIndex = index;
+  }
+  for (int i=0; i<length; i++) {
+    items[i]->renderItem(screen, 0, i == selectedIndex);
+  }
+  screen->display();
+}
+
+// only update once every 200ms
+bool FullScreenDisplay::requiresUpdate() {
+  static bool didUpdate = false;
+  if (millis()%200 == 0) {
+    if (!didUpdate) {
+      didUpdate = true;
+      return true;
+    }
+  }
+  else {
+    didUpdate = false;
+  }
+  return false;
+}
+
+// =====================================================
+// ScreenElement
+// =====================================================
+
+FullScreenElement::FullScreenElement(const char* nameInpt, 
+                                     ScreenPosition position_in, 
+                                     MenuItemBase* child_in, 
+                                     bool selectable,
+                                     void (*getItemNameFn)(const char*))
+: MenuItemBase(nameInpt, /*showNum =*/false) {
+  canSelect = selectable;
+  getItemName = getItemNameFn;
+  child = child_in;
+  position = position_in;
+}
+
+void FullScreenElement::renderItem(LCDScreen* screen, int16_t yPos, bool selected) {
+  int16_t x,y;
+  uint16_t w,h;
+  x = 0;
+  y = 0;
+
+  char tempName[40];
+  if (getItemName == NULL) {
+    strcpy(tempName, name);
+  }
+  else {
+    getItemName(tempName);
+  }
+
+  screen->getTextBounds(tempName,0,0,&x,&y,&w,&h);
+
+  switch (position.x) {
+    case LEFT:
+      x = MENU_ITEM_PADDING;
+      break;
+    case RIGHT:
+      x = screen->width() - w - MENU_ITEM_PADDING;
+      break;
+    case CENTER:
+      x = (screen->width() - w)/2;
+  }
+
+  switch(position.y) {
+    case TOP:
+      y = MENU_ITEM_PADDING;
+      break;
+    case BOTTOM:
+      y = screen->height() - h - MENU_ITEM_PADDING;
+      break;
+    case MIDDLE:
+      y = (screen->height() - h)/2;
+  }
+
+  if(selected) {
+    screen->fillRect(x - MENU_ITEM_PADDING, 
+                     y - MENU_ITEM_PADDING, 
+                     w+2*MENU_ITEM_PADDING, 
+                     h+2*MENU_ITEM_PADDING, 
+                     WHITE);
+    screen->setTextColor(BLACK);
+  }
+  else {
+    screen->setTextColor(WHITE);
+  }
+  screen->setCursor(x,y);
+  screen->print(tempName);
+}
+
+void FullScreenElement::setParentMenu(Menu* menu) {
+  if (child->getItemType()==MENU) {
+    ((Menu*)(child))->setParentMenu(menu);
+  }
+}
+
 
 // =====================================================
 // NavigationController
@@ -326,7 +432,7 @@ NavigationController::NavigationController(LCDScreen* scrn, Menu* topMenu) {
   screen = scrn;
   currentMenu = topMenu;
   currentMenu->bindToScreen(scrn);
-  currentMenu->selectIndex(0);
+  currentMenu->selectIndex();
 }
 
 void NavigationController::dispatchPress() {
@@ -346,7 +452,7 @@ void NavigationController::dispatchPress() {
     case MENU:
       currentMenu = (Menu*)(selectedItem);
       currentMenu->bindToScreen(screen);
-      currentMenu->selectIndex(0);
+      currentMenu->selectIndex();
       break;
   }
 }
@@ -363,9 +469,16 @@ void NavigationController::goHome() {
   while(currentMenu->getParentMenu() != NULL) {
     currentMenu = currentMenu->getParentMenu();
   }
-  currentMenu->selectIndex(0);
+  currentMenu->selectIndex();
 }
 
 void NavigationController::display() {
   currentMenu->selectIndex();
+}
+
+void NavigationController::tick() {
+  // redraw if needed
+  if (currentMenu->requiresUpdate()) {
+    currentMenu->selectIndex();
+  }
 }
