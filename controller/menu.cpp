@@ -6,6 +6,7 @@
 
 #include "menu.h"
 #include <stdarg.h>
+#include "constants.h"
 
 #include "Arduino.h"
 
@@ -192,6 +193,31 @@ Menu::Menu(uint8_t count, const char* nameInpt, va_list ap)
   if (selectedIndex == -1) selectedIndex = 0;
 }
 
+Menu::Menu(const char* nameInpt, uint8_t count, MenuItemBase** itemsIn)
+: MenuItemBase(nameInpt) {
+  int currentIndex = 0;
+  items = new MenuItemBase*[count];
+  length = count;
+  for (uint8_t i=0; i < count; i++) {
+    items[i] = itemsIn[i];
+    if (items[i]->getShowIndex()) {
+      currentIndex++;
+      items[i]->setIndex(currentIndex);
+    }
+    if (selectedIndex != -1 && items[i]->getSelectable()) {
+      selectedIndex = i;
+    }
+
+    // if the item is a menu, set this menu as its parent
+    if (items[i]->getItemType() == MENU) {
+      ((Menu*)(items[i]))->setParentMenu(this);
+    }
+  }
+  
+  // only as a last resort
+  if (selectedIndex == -1) selectedIndex = 0;
+}
+
 void Menu::bindToScreen(LCDScreen* scrn) {
   screen = scrn;
 }
@@ -311,7 +337,8 @@ void Menu::drawAtPos(int16_t scrollPos) {
       bool selected = selectedIndex == i;
       items[i]->renderItem(screen,yOffset,selected);
       // if any onscreen items require an update, set the flag
-      updateRequired = updateRequired | items[i]->requiresUpdate();
+      // shouldn't listen to menus because they will be checking their children
+      updateRequired = updateRequired || (items[i]->getItemType() != MENU && items[i]->requiresUpdate());
     }
     yOffset += itemHeight;
   }
@@ -335,6 +362,11 @@ void FullScreenDisplay::selectIndex(uint8_t index) {
 
 // only update once every 200ms
 bool FullScreenDisplay::requiresUpdate() {
+  for (int i=0; i<length; i++) {
+    if (items[i]->requiresUpdate()) {
+      return true;
+    }
+  }
   static bool didUpdate = false;
   if (millis()%200 == 0) {
     if (!didUpdate) {
@@ -348,15 +380,25 @@ bool FullScreenDisplay::requiresUpdate() {
   return false;
 }
 
+// kinda hacky
+MenuItemBase* FullScreenDisplay::getSelectedItem() {
+  if (items[selectedIndex]->getItemType() == MENU) {
+    return ((FullScreenElement*)(items[selectedIndex]))->getChild();
+  }
+  else {
+    return items[selectedIndex];
+  }
+};
+
 // =====================================================
 // ScreenElement
 // =====================================================
 
 FullScreenElement::FullScreenElement(const char* nameInpt, 
-                                     ScreenPosition position_in, 
-                                     MenuItemBase* child_in, 
+                                     ScreenPosition position_in,  
                                      bool selectable,
-                                     void (*getItemNameFn)(const char*))
+                                     void (*getItemNameFn)(const char*),
+                                     MenuItemBase* child_in)
 : MenuItemBase(nameInpt, /*showNum =*/false) {
   canSelect = selectable;
   getItemName = getItemNameFn;
@@ -370,7 +412,7 @@ void FullScreenElement::renderItem(LCDScreen* screen, int16_t yPos, bool selecte
   x = 0;
   y = 0;
 
-  char tempName[40];
+  char tempName[200];
   if (getItemName == NULL) {
     strcpy(tempName, name);
   }
@@ -417,11 +459,89 @@ void FullScreenElement::renderItem(LCDScreen* screen, int16_t yPos, bool selecte
   screen->print(tempName);
 }
 
+MenuItemType FullScreenElement::getItemType() {
+  if (child != NULL) {
+    return child->getItemType();
+  }
+  return MISC;
+}
+
+void FullScreenElement::dispatchPress() {
+  if (child != NULL) {
+    child->dispatchPress();
+  }
+}
+
 void FullScreenElement::setParentMenu(Menu* menu) {
   if (child->getItemType()==MENU) {
     ((Menu*)(child))->setParentMenu(menu);
   }
 }
+
+// =====================================================
+// SettingChanger
+// =====================================================
+
+SettingChanger::SettingChanger(Setting* setting_in, Encoder* encoder_in) 
+: FullScreenElement("", {x:CENTER, y:MIDDLE}, true, NULL) {
+  FullScreenElement::child = new BackButton();
+  setting = setting_in;
+  encoder = encoder_in;
+  offset = 0;
+}
+
+bool SettingChanger::requiresUpdate() {
+  bool retVal = false;
+  if (offsetValid) {
+    int value = setting->value;
+    long reading = encoder->read();
+    value += (reading - offset)/ENCODER_STEPS_PER_CLICK;
+    // add the remainder back on to keep track of those half steps
+    offset = reading - (reading - offset)%ENCODER_STEPS_PER_CLICK;
+    if (value < setting->min) {
+      value = setting->min;
+    }
+    else if (value > setting->max) {
+      value = setting->max;
+    }
+    if (setting->value != value) {
+      retVal = true;
+    }
+    else {
+      retVal = false;
+    }
+    setting->value = (uint8_t)(value);
+  }
+  else {
+    offsetValid = true;
+    offset = encoder->read();
+  }
+  return retVal;
+}
+
+void SettingChanger::renderItem(LCDScreen* screen, int16_t yPos, bool selected) {
+  char tmp[8];
+  switch (setting->type) {
+    case VALUE:
+      sprintf(tmp, "%d", setting->value);
+      break;
+    case BOOL:
+      sprintf(tmp, setting->value?STR_ON:STR_OFF);
+  }
+  screen->setTextColor(WHITE);
+  int16_t valueY = screen->printCentered(setting->name);
+  screen->printCentered(tmp, false, valueY + MENU_ITEM_PADDING);
+}
+
+// a press makes us leave this menu
+void SettingChanger::dispatchPress() {
+  //Serial.println("press dispatched!");
+  offsetValid = false;
+  Settings::getInstance()->save(setting);
+  // super
+  FullScreenElement::dispatchPress();
+}
+
 
 
 // =====================================================
@@ -443,6 +563,7 @@ void NavigationController::dispatchPress() {
       selectedItem->dispatchPress();
       break;
     case BUTTON_BACK:
+      selectedItem->dispatchPress();
       if (currentMenu->getParentMenu() != NULL) {
         currentMenu = currentMenu->getParentMenu();
         currentMenu->bindToScreen(screen);

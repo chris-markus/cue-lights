@@ -14,6 +14,9 @@
 
 #define STATION_DISCONNECT_TIMEOUT 2000 //ms
 
+#define FLASH_DELAY_ON 1000
+#define FLASH_DELAY_OFF 300
+
 enum ConnectionStatus {
     CONNECTED,
     DISCONNECTED,
@@ -36,21 +39,26 @@ public:
     void setCueStatus(CueStatus status_in);
     CueStatus getCueStatus() { return cueStatus; };
     void setColor(RGBColor color_in) { color = color_in; };
-    RGBColor getColor() { return color; };
+    RGBColor getColor();
 private:
+    bool getFlashState();
     unsigned long lastSeen = 0;
     uint8_t address;
     RGBColor color;
     ConnectionStatus connectionStatus = DISCONNECTED;
     CueStatus cueStatus = NONE;
+    bool isFlashing = false;
+    static unsigned long lastFlashUpdate;
+    static bool flashState;
 };
 
+/*
 class RemoteInterface {
 private:
     static RemoteInterface *instance;
     RemoteStation* stations[MAX_STATIONS];
     // Private constructor so that no objects can be created.
-    RemoteInterface() { /*do nothing*/ }
+    RemoteInterface() { /*do nothing*//* }
     ~RemoteInterface() { delete instance; delete[] stations; }
 
     void init();
@@ -60,6 +68,6 @@ public:
     void scanAndConnect();
     RemoteStation* getStation(int num) { return stations[num]; };
     void tick();
-};
+};*/
 
 #endif

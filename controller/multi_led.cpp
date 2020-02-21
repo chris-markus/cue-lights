@@ -14,10 +14,8 @@ MultiLED::MultiLED(int rPin_in, int gPin_in, int bPin_in, int count, int* pins_i
     num_LED = count;
     pins = new int[num_LED];
     states = new uint8_t* [num_LED];
-    flashing = new bool[num_LED];
     for (int i=0; i < num_LED; i++) {
         states[i] = new uint8_t[3];
-        flashing[i] = false;
         pins[i] = pins_in[i];
         states[i][0] = 0;
         states[i][1] = 0;
@@ -35,26 +33,18 @@ void MultiLED::setup() {
 }
 
 void MultiLED::tick() {
-    bool flash = (bool)(Settings::getInstance()->getSettingWithName(SETTING_FLASH_STANDBY)->value);
-    //Serial.println(Settings::getInstance()->getSettingWithName(SETTING_FLASH_STANDBY)->value);
-    if (flash && flashState && millis() > lastFlashUpdate + FLASH_DELAY_ON || 
-        !flashState && millis() > lastFlashUpdate + FLASH_DELAY_OFF) {
-        flashState = !flashState;
-        lastFlashUpdate = millis();
-    }
     static int i = 0;
     digitalWrite(pins[i], LOW);
     i = (i + 1) % num_LED;
-    bool flashOn = !flash || !flashing[i] || flashState;
-    analogWrite(rPin, states[i][0]*flashOn);
-    analogWrite(gPin, states[i][1]*flashOn);
-    analogWrite(bPin, states[i][2]*flashOn);
+    analogWrite(rPin, states[i][0]);
+    analogWrite(gPin, states[i][1]);
+    analogWrite(bPin, states[i][2]);
     digitalWrite(pins[i], HIGH);
 }
 
 void MultiLED::setColor(int index, uint8_t r, uint8_t g, uint8_t b) {
     int brightness = 100;
-    Setting* s = Settings::getInstance()->getSettingWithName(SETTING_PANEL_BRIGHTNESS);
+    Setting* s = Settings::getInstance()->getSettingWithID(SETTING_PANEL_BRIGHTNESS_ID);
     if (s != NULL) {
         brightness = s->value;
     }
@@ -88,15 +78,6 @@ void MultiLED::setColor(int index, RGBColor color) {
     setColor(index, color.r, color.g, color.b);
 }
 
-// TODO: this should really just be done in the tick function
-void MultiLED::flash(int index) {
-    flashing[index] = true;
-}
-
-void MultiLED::stopFlash(int index) {
-    flashing[index] = false;
-}
-
 void MultiLED::allOff() {
     for (int i=0; i<num_LED; i++) {
         states[i][0] = 0;
@@ -108,10 +89,12 @@ void MultiLED::allOff() {
     }
 }
 
-void MultiLED::getColor(int index, uint8_t* r, uint8_t* g, uint8_t* b) {
+RGBColor MultiLED::getColor(int index) {
+    RGBColor ret;
     if (index >=0 && index < num_LED) {
-        *r = states[index][0];
-        *g = states[index][1];
-        *b = states[index][2];
+        ret.r = states[index][0];
+        ret.g = states[index][1];
+        ret.b = states[index][2];
     }
+    return ret;
 }

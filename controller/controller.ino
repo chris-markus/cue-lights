@@ -8,6 +8,7 @@
 // Encoder: Arduino Package Manager
 // Wire.h: Arduino Package Manager
 // Adafruit_SSD1306: Arduino Package Manager
+// EEPROM: included with Arduino
 // Adafruit_GFX: Arduino Package Manager
 // CueLightsCommon: In git repo (follow instructions in README)
 
@@ -29,6 +30,16 @@
 #include "settings.h"
 #include "constants.h"
 
+// TODO:
+// Add back flashing - DONE
+// implement brightness and color settings
+// fix Testing
+// debug panel led flashing - WON'T FIX
+// slim down ISR code
+// fix settings code
+// implement issue Center
+// general code clean-up
+
 // some global objects
 CLCDebouncedButton encoderButton(53, ACTIVE_LOW_PULLUP);
 LCDScreen screen(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire);
@@ -43,6 +54,8 @@ enum GlobalStatusEnum {
   FAULT,
 };
 GlobalStatusEnum GlobalStatus = BUSY;
+int stationMissCounter[MAX_STATIONS] = {0,0,0,0,0,0,0,0,0,0};
+int stationHitCounter[MAX_STATIONS] = {0,0,0,0,0,0,0,0,0,0};
 
 const int ledPins[MAX_STATIONS + 1] = {42,40,38,36,34,32,30,28,26,24,22};
 MultiLED channelLEDs(11, 10, 9, MAX_STATIONS + 1, ledPins); // rPin, gPin, bPin, numLED, pins
@@ -55,12 +68,35 @@ UIController* interface;
 RemoteStation stations[MAX_STATIONS] = {1,2,3,4,5,6,7,8,9,10};
 
 // settings
-Setting panelBrightness = {SETTING_PANEL_BRIGHTNESS, SETTING_PANEL_BRIGHTNESS_ID, 90, 100, 10, VALUE};
+Setting panelBrightness = {SETTING_PANEL_BRIGHTNESS, SETTING_PANEL_BRIGHTNESS_ID, 100, 100, 10, VALUE};
+Setting stationBrightness[MAX_STATIONS];
+Setting standbyColor[3];
+Setting goColor[3];
 Setting flashOnStandby = {SETTING_FLASH_STANDBY, SETTING_FLASH_STANDBY_ID, 1, 1, 0, BOOL};
 
 void addSettings() {
-  // allocate the settings object and tell it we want 2 settings
-  Settings::alloc(2, &EEPROM);
+  // allocate the settings object and tell it we want 12 settings
+  Settings::alloc(18, &EEPROM);
+
+  for (int i=0; i<MAX_STATIONS; i++) {
+    char* nameBuf = new char[21];
+    sprintf(nameBuf, SETTING_STATION_BRIGHTNESS, (i+1));
+    stationBrightness[i] = Setting {nameBuf, SETTING_STATION_BRIGHTNESS_ID + i, 100, 100, 10, VALUE};
+    Settings::getInstance()->add((Setting*)(stationBrightness + i));
+  }
+
+  standbyColor[0] = Setting {STR_RED, SETTING_STBY_COLOR_ID, 255, 255, 0, VALUE};
+  standbyColor[1] = Setting {STR_GREEN, SETTING_STBY_COLOR_ID+1, 0, 255, 0, VALUE};
+  standbyColor[2] = Setting {STR_BLUE, SETTING_STBY_COLOR_ID+2, 0, 255, 0, VALUE};
+
+  goColor[0] = Setting {STR_RED, SETTING_GO_COLOR_ID, 0, 255, 0, VALUE};
+  goColor[1] = Setting {STR_GREEN, SETTING_GO_COLOR_ID+1, 255, 255, 0, VALUE};
+  goColor[2] = Setting {STR_BLUE, SETTING_GO_COLOR_ID+2, 0, 255, 0, VALUE};
+
+  for (int i=0; i<3; i++) {
+    Settings::getInstance()->add(&(standbyColor[i]));
+    Settings::getInstance()->add(&(goColor[i]));
+  }
 
   // add pointers to our settings
   Settings::getInstance()->add(&panelBrightness);
@@ -75,7 +111,7 @@ CLCDebouncedButton stationButtons[(MAX_STATIONS + 1)][2] = {47,47,45,45,43,43,41
 
 // forward function declarations:
 void updateFacePanelLights();
-
+/*
 // Menu helper functions:
 void testAll() {
   screen.clear();
@@ -118,7 +154,7 @@ void testOneHelper() {
   rainbow(station);
 
   screen.clear();
-  int16_t yOff = screen.printCentered("Testing station:");
+  int16_t yOff = screen.printCentered(STR_TESTING_STATION);
   char tmp[3];
   sprintf(tmp, "%d", station);
   screen.printCentered(tmp, false, yOff + 2);
@@ -133,59 +169,7 @@ void loopUntilEncoderIsPressedAgain(void (*callback)()) {
   while(!encoderButton.isPressed()) {
     callback();
   }
-}
-
-void adjustSetting(Setting* s) {
-  screen.setTextColor(WHITE);
-  bool releasedOnce = encoderButton.isPressed();
-  bool stop = false;
-  long offset = encoder.read();
-  int value = s->value;
-  while (!stop) {
-    bool pressed = encoderButton.isPressed();
-    if (pressed && !releasedOnce) {
-      stop = true;
-    }
-    if (!pressed && releasedOnce) {
-      releasedOnce = false;
-    }
-    long reading = encoder.read();
-    value += (reading - offset)/ENCODER_STEPS_PER_CLICK;
-    // add the remainder back on to keep track of those half steps
-    offset = reading - (reading - offset)%ENCODER_STEPS_PER_CLICK;
-    if (value < s->min) 
-      value = s->min;
-    else if (value > s->max) 
-      value = s->max;
-
-    s->value = value;
-
-    screen.clear();
-    int16_t yOff = screen.printCentered(s->name);
-    char tmp[4];
-    switch (s->type) {
-      case VALUE:
-        sprintf(tmp, "%d", value);
-        break;
-      case BOOL:
-        sprintf(tmp, s->value?STR_ON:STR_OFF);
-    }
-    screen.printCentered(tmp, false, yOff + 2);
-    screen.display();
-    // TODO: this really shouldn't go here...
-    updateFacePanelLights();
-  }
-  Settings::getInstance()->save(s);
-  interface->displayCurrentMenu();
-}
-
-void adjustBrightness() {
-  adjustSetting(&panelBrightness);
-}
-
-void adjustFlash() {
-  adjustSetting(&flashOnStandby);
-}
+}*/
 
 void getConnStatusString(const char* input) {
   uint8_t count = 0;
@@ -195,43 +179,138 @@ void getConnStatusString(const char* input) {
   sprintf(input, STR_LIGHTS_STATUS, count);
 }
 
+int getNextDisconnectedStation(int& numDisconnected) {
+  static unsigned long lastUpdate = 0;
+  const uint16_t updateInterval = 1500;
+  static int currentStation = 0;
+  bool connected[MAX_STATIONS];
+  bool fault = false;
+  numDisconnected = 0;
+  for (int i=0; i<MAX_STATIONS; i++) {
+    if (stations[currentStation].getConnStatus() != CONNECTED 
+        && stations[i].getLastSeen() != 0
+        && millis() - stations[i].getLastSeen() > STATION_DISCONNECT_TIMEOUT 
+        && millis() - stations[i].getLastSeen() < 100000)
+    {
+      if (millis() - stations[i].getLastSeen() < 10000) {
+        fault = true;
+      }
+      connected[i] = false;
+      numDisconnected++;
+    }
+    else {
+      connected[i] = true;
+    }
+  }
+  if (stations[currentStation].getConnStatus() == CONNECTED || millis() > lastUpdate + updateInterval) {
+    lastUpdate = millis();
+    for (int i=currentStation+1; i<MAX_STATIONS + currentStation + 1; i++) {
+      if (!connected[i%MAX_STATIONS]) {
+        currentStation = i%MAX_STATIONS;
+        break;
+      }
+    }
+  }
+  if (fault) {
+    GlobalStatus = FAULT;
+  }
+  else {
+    GlobalStatus = OK;
+  }
+  if (numDisconnected > 0) {
+    return currentStation;
+  }
+  else {
+    return -1;
+  }
+}
+
 void getGlobalStatusString(const char* input) {
-  if (GlobalStatus == FAULT) {
-    sprintf(input, STR_ISSUES, 1);
+  int numIssues = 0;
+  int i = getNextDisconnectedStation(numIssues);
+  if (i != -1) {
+    sprintf(input, STR_ISSUES, numIssues);
   }
   else {
     sprintf(input, STR_NO_ISSUES);
   }
 }
 
+void getDescriptiveGlobalStatusString(const char* input) {
+  int numIssues = 0;
+  int i = getNextDisconnectedStation(numIssues);
+  if (i != -1) {
+    sprintf(input, STR_STATION_DISCONNECTED, i+1, (millis() - stations[i].getLastSeen())/1000);
+  }
+  else {
+    sprintf(input, STR_NO_ISSUES);
+  }
+}
+
+void resetSettings() {
+  Settings::getInstance()->resetDefaults();
+  navigation->goHome();
+}
+
 // back buttons are automatically added
-Menu mainMenu(STR_MENU_MAIN, 5,
+Menu mainMenu(STR_MENU_MAIN, 6,
   new HeaderItem(STR_MENU_MAIN, STR_CLOSE_BUTTON, NULL, true),
-  new Menu(STR_PANEL_LIGHTS, 1,
-    new MenuItem(SETTING_PANEL_BRIGHTNESS, adjustBrightness)
+  new FullScreenDisplay(SETTING_PANEL_BRIGHTNESS, 0,1,
+    new SettingChanger(&panelBrightness, &encoder)
   ),
   new Menu(STR_STATION_LIGHTS, 4,
-    new MenuItem(STR_BRIGHTNESS, adjustBrightness),
-    new MenuItem(SETTING_FLASH_STANDBY, adjustFlash),
-    new MenuItem(STR_STBY_COLOR),
-    new MenuItem(STR_GO_COLOR)
+    makeBrightnessMenu(),
+    new FullScreenDisplay(SETTING_FLASH_STANDBY, 0,1,
+      new SettingChanger(&flashOnStandby, &encoder)
+    ),
+    makeColorMenu(STR_STBY_COLOR, standbyColor),
+    makeColorMenu(STR_GO_COLOR, goColor)
   ),
-  new Divider(),
-  new Menu(STR_TEST_STATIONS, 2,
+  new MenuItem(STR_RESET, resetSettings),
+  /*new Menu(STR_TEST_STATIONS, 2,
     new MenuItem(STR_TEST_ALL_STATIONS, testAll),
     new MenuItem(STR_TEST_ONE_STATION, testOne)
+  ),*/
+  new Divider(),
+  new FullScreenDisplay(STR_ABOUT, 0, 2,
+    new FullScreenElement(STR_BACK_BUTTON, {x: LEFT, y: TOP}, true, NULL, new BackButton()),
+    new FullScreenElement(STR_ABOUT_DESCRIPTION,{x: LEFT, y: BOTTOM}, false)
   )
 );
 
 FullScreenDisplay homeScreen("", /*default selection*/ 1, /*count=*/3,
-  new FullScreenElement("", {x: LEFT, y: BOTTOM}, 
+  new FullScreenElement("", {x: LEFT, y: BOTTOM}, true, getGlobalStatusString,
     new FullScreenDisplay("", 0, 2,
-      new FullScreenElement(STR_BACK_BUTTON, {x: LEFT, y: TOP}, new BackButton(), true),
-      new FullScreenElement("", {x: CENTER, y: MIDDLE}, NULL, false, getGlobalStatusString)
-    ), true, getGlobalStatusString),
-  new FullScreenElement(STR_MENU_MAIN, {x: RIGHT, y: BOTTOM}, &mainMenu, true),
-  new FullScreenElement("", {x: CENTER, y: MIDDLE}, NULL, false, getConnStatusString)
+      new FullScreenElement(STR_BACK_BUTTON, {x: LEFT, y: TOP}, true, NULL, new BackButton()),
+      new FullScreenElement("", {x: CENTER, y: MIDDLE}, false, getDescriptiveGlobalStatusString)
+    )
+  ),
+  new FullScreenElement(STR_MENU_MAIN, {x: RIGHT, y: BOTTOM}, true, NULL, &mainMenu),
+  new FullScreenElement("", {x: CENTER, y: MIDDLE}, false, getConnStatusString)
 );
+
+Menu* makeBrightnessMenu() {
+  MenuItemBase* stationItems[MAX_STATIONS];
+  for (int i = 0; i<MAX_STATIONS; i++) {
+    char* nameTemp = new char[11];
+    sprintf(nameTemp, STR_STATION_I, (i+1));
+    stationItems[i] = new FullScreenDisplay(nameTemp, 0,1,
+      new SettingChanger((Setting*)(stationBrightness + i), &encoder)
+    );
+  }
+  return new Menu(STR_BRIGHTNESS, MAX_STATIONS, stationItems);
+}
+
+Menu* makeColorMenu(const char* name, Setting* setting) {
+  const char* colorNames[3] = {STR_RED, STR_GREEN, STR_BLUE};
+  MenuItemBase* colorItems[3];
+  for (int i = 0; i<3; i++) {
+    colorItems[i] = new FullScreenDisplay(colorNames[i], 0,1,
+      new SettingChanger(&(setting[i]), &encoder)
+    );
+  }
+  return new Menu(name, 3, colorItems);
+}
 
 void updateFacePanelLights() {
   // row 0 is standby, 1 is go
@@ -290,29 +369,29 @@ void updateFacePanelLights() {
 
   buttonRow = !buttonRow;
 
-  bool someStby = false;
-  bool someGo = false;
-  bool someConnected = false;
+  int stby = -1;
+  int go = -1;
+  int connected = -1;
   for (int i=0; i<MAX_STATIONS; i++) {
     if (stations[i].getCueStatus() == STBY) {
-      someStby = true;
+      stby = i;
     }
     else if (stations[i].getCueStatus() == GO) {
-      someGo = true;
+      go = i;
     }
     else if (stations[i].getConnStatus() == CONNECTED) {
-      someConnected = true;
+      connected = i;
     }
   }
 
-  if (someStby) {
-    channelLEDs.setColor(MAX_STATIONS, RED);
+  if (stby != -1) {
+    channelLEDs.setColor(MAX_STATIONS, channelLEDs.getColor(stby));
   }
-  else if (someGo) {
-    channelLEDs.setColor(MAX_STATIONS, GREEN);
+  else if (go != -1) {
+    channelLEDs.setColor(MAX_STATIONS, channelLEDs.getColor(go));
   }
-  else if (someConnected) {
-    channelLEDs.setColor(MAX_STATIONS, BLUE, 0.1);
+  else if (connected != -1) {
+    channelLEDs.setColor(MAX_STATIONS, channelLEDs.getColor(connected));
   }
   else {
     channelLEDs.setColor(MAX_STATIONS, OFF);
@@ -328,6 +407,7 @@ void updateFacePanelLights() {
   }
 }
 
+/*
 // TODO: fix this...
 void rainbow() {
   for (int i=0; i<MAX_STATIONS + 1; i++) {
@@ -345,7 +425,7 @@ void rainbow(int index) {
   channelLEDs.setColor(index, floor(127.5 + 127.5*sin((float)(millis())/1000.0)),
                           floor(127.5 + 127.5*sin((float)(millis())/1000.0 + 2*PI/3)) / 2,
                           floor(127.5 + 127.5*sin((float)(millis())/1000.0 + 4*PI/3)) / 2);
-}
+}*/
 
 // this is almost definitely too much code for an ISR but it runs just fine...
 ISR(TIMER2_OVF_vect) {
@@ -359,7 +439,7 @@ unsigned long birthTime;
 void setup() {
   CLCSerial.init(true, 2);
   Serial2.begin(CLC_DEFAULT_BAUD_RATE);
-  Serial.begin(CLC_DEFAULT_BAUD_RATE);
+  //Serial.begin(CLC_DEFAULT_BAUD_RATE);
 
   for (int i=0; i<3; i++) {
     pinMode(statusLEDPins[i], OUTPUT);
@@ -445,11 +525,16 @@ void updateRemote() {
       else {
         bool doneRequesting = false;
         if (getStationResponse(stations[responseStation].getAddress())) {
+          //stationHitCounter[responseStation]++;
           stations[responseStation].setConnStatus(CONNECTED);
           stations[responseStation].setLastSeen();
           doneRequesting = true;
         }
         else if (millis() > lastRequest + CLC_RESPONSE_DELAY + CLC_STATE_SWITCH_DELAY*2) {
+          /*if (stations[responseStation].getConnStatus == CONNECTED) {
+            stationMissCounter[responseStation]++;
+            stationHitCounter[responseStation]++;
+          }*/
           // station request timed out, disconnect if it's been long enough
           if (stations[responseStation].getLastSeen() < millis() - STATION_DISCONNECT_TIMEOUT) {
             stations[responseStation].setConnStatus(DISCONNECTED);
@@ -467,6 +552,13 @@ void updateRemote() {
       break;
   }
 }
+
+/*
+int freeRam () {
+  extern int __heap_start, *__brkval;
+  int v;
+  return (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval);
+}*/
 
 void sendColor(RemoteStation* station) {
   const int len = 7;

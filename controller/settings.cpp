@@ -18,6 +18,7 @@ Settings* Settings::alloc(int numSettings, EEPROMClass *rom) {
     instance = new Settings;
     instance->maxSettings = numSettings;
     instance->settings = new Setting*[numSettings];
+    instance->defaults = new uint8_t[numSettings];
     instance->eeprom = rom;
     return instance;
 }
@@ -28,9 +29,9 @@ Settings* Settings::getInstance()  {
     return instance;
 }
 
-Setting* Settings::getSettingWithName(const char* name) {
+Setting* Settings::getSettingWithID(uint8_t id) {
     for (int i=0; i<count; i++) {
-        if (strcmp(settings[i]->name, name) == 0) {
+        if (settings[i]->id == id) {
             return settings[i];
         }
     }
@@ -40,6 +41,7 @@ Setting* Settings::getSettingWithName(const char* name) {
 bool Settings::add(Setting* s) {
     if (count < maxSettings) {
         settings[count++] = s;
+        defaults[count - 1] = s->value;
         uint8_t readVal = eeprom->read(s->id);
         if (readVal <= s->max && readVal >= s->min) {
             s->value = readVal;
@@ -47,6 +49,13 @@ bool Settings::add(Setting* s) {
         return true;
     }
     return false;
+}
+
+void Settings::resetDefaults() {
+    for (int i=0; i<count; i++) {
+        settings[i]->value = defaults[i];
+        save(settings[i]);
+    }
 }
 
 void Settings::save(Setting* s) {

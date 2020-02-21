@@ -11,9 +11,6 @@
 #include "Arduino.h"
 #include <CueLightsCommon.h>
 
-#define FLASH_DELAY_ON 1000
-#define FLASH_DELAY_OFF 300
-
 enum Color {
     OFF,
     RED,
@@ -29,10 +26,8 @@ public:
     void setColor(int index, uint8_t r, uint8_t g, uint8_t b);
     void setColor(int index, RGBColor color);
     void setColor(int index, Color, float intensity = 1.0);
-    void flash(int index);
-    void stopFlash(int index);
     void allOff();
-    void getColor(int index, uint8_t* r, uint8_t* g, uint8_t* b);
+    RGBColor getColor(int index);
 private:
     int rPin;
     int gPin;
@@ -40,9 +35,6 @@ private:
     int num_LED;
     int* pins;
     uint8_t** states;
-    unsigned long lastFlashUpdate;
-    bool flashState = true;
-    bool* flashing;
 };
 
 #endif

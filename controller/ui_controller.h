@@ -11,8 +11,7 @@
 #include <CueLightsCommon.h>
 #include "lcd_screen.h"
 #include "menu.h"
-
-#define ENCODER_STEPS_PER_CLICK 4
+#include "constants.h"
 
 class UIController {
 public:

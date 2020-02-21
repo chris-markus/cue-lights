@@ -5,29 +5,80 @@
 // =====================================================
 
 #include "remote_station.h"
+#include "settings.h"
 
 // =====================================================
 // RemoteStation
 // =====================================================
+
+// init static members:
+unsigned long RemoteStation::lastFlashUpdate = 0;
+bool RemoteStation::flashState = true;
+
 void RemoteStation::setCueStatus(CueStatus status_in) {
     cueStatus = status_in;
-    RGBColor color = {
+    RGBColor colorTmp = {
         r: 0,
         g: 0,
         b: 0,
     };
     if (cueStatus == STBY) {
-        color.r =  255;
+        Serial.println(Settings::getInstance()->getSettingWithID(SETTING_STBY_COLOR_ID+1)->name);
+        Serial.println(Settings::getInstance()->getSettingWithID(SETTING_STBY_COLOR_ID)->value);
+        Serial.println(Settings::getInstance()->getSettingWithID(SETTING_STBY_COLOR_ID+1)->value);
+        Serial.println(Settings::getInstance()->getSettingWithID(SETTING_STBY_COLOR_ID+2)->value);
+
+        colorTmp.r = (Settings::getInstance()->getSettingWithID(SETTING_STBY_COLOR_ID))->value;
+        colorTmp.g = (Settings::getInstance()->getSettingWithID(SETTING_STBY_COLOR_ID+1))->value;
+        colorTmp.b = (Settings::getInstance()->getSettingWithID(SETTING_STBY_COLOR_ID+2))->value;
+        isFlashing = true;
     }
     else if (cueStatus == GO) {
-        color.g = 255;
+        colorTmp.r = Settings::getInstance()->getSettingWithID(SETTING_GO_COLOR_ID)->value;
+        colorTmp.g = Settings::getInstance()->getSettingWithID(SETTING_GO_COLOR_ID+1)->value;
+        colorTmp.b = Settings::getInstance()->getSettingWithID(SETTING_GO_COLOR_ID+2)->value;
+        isFlashing = false;
     }
-    setColor(color);
+    else {
+        isFlashing = false;
+    }
+    color = colorTmp;
+}
+
+RGBColor RemoteStation::getColor() {
+    RGBColor retColor = {
+        r: 0,
+        g: 0,
+        b: 0,
+    };
+    bool onIfFlashing = getFlashState();
+    if (!isFlashing || onIfFlashing) {
+        Setting* brightnessSetting = Settings::getInstance()->getSettingWithID(SETTING_STATION_BRIGHTNESS_ID + address - 1);
+        retColor = {
+            r: color.r*brightnessSetting->value/brightnessSetting->max,
+            g: color.g*brightnessSetting->value/brightnessSetting->max,
+            b: color.b*brightnessSetting->value/brightnessSetting->max,
+        };
+    }
+    return retColor;
+};
+
+// private -----------------------------
+
+bool RemoteStation::getFlashState() {
+    bool flashEnabled = (bool)(Settings::getInstance()->getSettingWithID(SETTING_FLASH_STANDBY_ID)->value);
+    if (flashEnabled && flashState && millis() > lastFlashUpdate + FLASH_DELAY_ON || 
+        !flashState && millis() > lastFlashUpdate + FLASH_DELAY_OFF) {
+        flashState = !flashState;
+        lastFlashUpdate = millis();
+    }
+    return !flashEnabled || flashEnabled && flashState;
 }
 
 // =====================================================
 // RemoteInterface
 // =====================================================
+/*
 RemoteInterface* RemoteInterface::instance = NULL; 
 
 RemoteInterface* RemoteInterface::getInstance() {
@@ -53,6 +104,6 @@ void RemoteInterface::scanAndConnect() {
 
 void RemoteInterface::tick() {
 
-}
+}*/
 
 // helper functions:
