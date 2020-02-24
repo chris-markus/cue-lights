@@ -369,6 +369,15 @@ void updateFacePanelLights() {
 
   buttonRow = !buttonRow;
 
+  for(int i=0; i< MAX_STATIONS; i++) {
+    if (stations[i].getConnStatus() == CONNECTED && stations[i].getCueStatus() == NONE) {
+      channelLEDs.setColor(i, BLUE, 0.1);
+    }
+    else {
+      channelLEDs.setColor(i, stations[i].getColor(true));
+    }
+  }
+
   int stby = -1;
   int go = -1;
   int connected = -1;
@@ -395,15 +404,6 @@ void updateFacePanelLights() {
   }
   else {
     channelLEDs.setColor(MAX_STATIONS, OFF);
-  }
-
-  for(int i=0; i< MAX_STATIONS; i++) {
-    if (stations[i].getConnStatus() == CONNECTED && stations[i].getCueStatus() == NONE) {
-      channelLEDs.setColor(i, BLUE, 0.1);
-    }
-    else {
-      channelLEDs.setColor(i, stations[i].getColor());
-    }
   }
 }
 

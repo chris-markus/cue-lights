@@ -23,11 +23,6 @@ void RemoteStation::setCueStatus(CueStatus status_in) {
         b: 0,
     };
     if (cueStatus == STBY) {
-        Serial.println(Settings::getInstance()->getSettingWithID(SETTING_STBY_COLOR_ID+1)->name);
-        Serial.println(Settings::getInstance()->getSettingWithID(SETTING_STBY_COLOR_ID)->value);
-        Serial.println(Settings::getInstance()->getSettingWithID(SETTING_STBY_COLOR_ID+1)->value);
-        Serial.println(Settings::getInstance()->getSettingWithID(SETTING_STBY_COLOR_ID+2)->value);
-
         colorTmp.r = (Settings::getInstance()->getSettingWithID(SETTING_STBY_COLOR_ID))->value;
         colorTmp.g = (Settings::getInstance()->getSettingWithID(SETTING_STBY_COLOR_ID+1))->value;
         colorTmp.b = (Settings::getInstance()->getSettingWithID(SETTING_STBY_COLOR_ID+2))->value;
@@ -45,19 +40,19 @@ void RemoteStation::setCueStatus(CueStatus status_in) {
     color = colorTmp;
 }
 
-RGBColor RemoteStation::getColor() {
+RGBColor RemoteStation::getColor(bool ignoreBrightness = false) {
     RGBColor retColor = {
         r: 0,
         g: 0,
         b: 0,
     };
     bool onIfFlashing = getFlashState();
-    if (!isFlashing || onIfFlashing) {
+    if (connectionStatus == CONNECTED && (!isFlashing || onIfFlashing)) {
         Setting* brightnessSetting = Settings::getInstance()->getSettingWithID(SETTING_STATION_BRIGHTNESS_ID + address - 1);
         retColor = {
-            r: color.r*brightnessSetting->value/brightnessSetting->max,
-            g: color.g*brightnessSetting->value/brightnessSetting->max,
-            b: color.b*brightnessSetting->value/brightnessSetting->max,
+            r: color.r*(ignoreBrightness?1:brightnessSetting->value/brightnessSetting->max),
+            g: color.g*(ignoreBrightness?1:brightnessSetting->value/brightnessSetting->max),
+            b: color.b*(ignoreBrightness?1:brightnessSetting->value/brightnessSetting->max),
         };
     }
     return retColor;

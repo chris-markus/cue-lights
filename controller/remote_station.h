@@ -39,7 +39,7 @@ public:
     void setCueStatus(CueStatus status_in);
     CueStatus getCueStatus() { return cueStatus; };
     void setColor(RGBColor color_in) { color = color_in; };
-    RGBColor getColor();
+    RGBColor getColor(bool ignoreBrightness = false);
 private:
     bool getFlashState();
     unsigned long lastSeen = 0;
