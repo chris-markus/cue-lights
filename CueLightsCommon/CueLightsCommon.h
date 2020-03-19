@@ -10,6 +10,7 @@
 #include <stdint.h>
 #include "Arduino.h"
 
+#define MAX_STATIONS 10 // Max number of connected stations
 #define CHANNELS_PER_STATION 3
 
 // some global constants
@@ -18,21 +19,27 @@
 
 // packet definitions... very loosely based on DMX packet principles
 // inspired by http://github.com/mathertel/DmxSerial
-#define CLC_PKT_START 's'
-#define CLC_PKT_END 'e'
-#define CLC_DATA_LEN 3
+#define CLC_PKT_START '<'
+#define CLC_PKT_END '>'
+#define CLC_DATA_LEN (CHANNELS_PER_STATION * MAX_STATIONS)
+#define CLC_STATUS_LEN 2 // 
+#define CLC_OVERHEAD 3 // start + type + end
+#define CLC_BREAK_LEN CLC_DATA_LEN
 
 typedef uint8_t CLCPacketType;
 
-#define CONTROL 0x11
-#define STATUS 0xCC
-#define RESPONSE 0xEE
+#define PKT_TYPE_CONTROL 'C'
+#define PKT_TYPE_STATUS 'S'
+#define PKT_TYPE_RESPONSE 'R'
 
 // delays and timeouts
-#define CLC_RESPONSE_DELAY 50 // ms
+#define CLC_RESPONSE_TIMEOUT 50 // ms
+#define CLC_RESPONSE_DELAY 10 // ms
 #define CLC_STATE_SWITCH_DELAY 1 // ms
 #define CLC_COLOR_SEND_DELAY 2 // ms + 1
 
+
+/*
 enum SerialState {
     WILL_RECIEVE,
     RECIEVING,
@@ -59,13 +66,21 @@ private:
     uint8_t msgLen;
     SerialState state;
     HardwareSerial *serial;
-};
+};*/
 
 // General Structs and enums
 struct RGBColor {
     uint8_t r;
     uint8_t g;
     uint8_t b;
+};
+
+enum MessageProgressState {
+  STATE_START,
+  STATE_TYPE,
+  STATE_DATA,
+  STATE_STATUS,
+  STATE_END,
 };
 
 // buttons
@@ -90,10 +105,6 @@ private:
     unsigned long lastStateUpdate = 0;
     unsigned int pin;
     CLCButtonType type;
-};
-
-namespace clc {
-    void flashLED(int pin, unsigned int delay, uint8_t brightness);
 };
 
 #endif

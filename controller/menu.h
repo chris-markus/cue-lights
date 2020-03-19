@@ -18,7 +18,6 @@
 
 #define MENU_ITEM_PADDING 2 //px
 
-
 enum MenuItemType {
   MISC,
   MENU,
@@ -89,18 +88,18 @@ class Divider: public MenuItemBase {
 
 class HeaderItem: public MenuItemBase {
   public:
-    HeaderItem(const char* nameInpt, const char* actionButtonStr, void (*onPressCb)() = NULL, bool isBackButton_in = false);
+    HeaderItem(const char* nameInpt, const char* actionButtonStr, void (*onPressCb)() = NULL, bool isBackButton = false);
     virtual bool getSelectable() { return true; };
 
     virtual void renderItem(LCDScreen* screen, int16_t yPos, bool selected = false);
     virtual uint16_t getHeight(LCDScreen*);
-    virtual MenuItemType getItemType() { return isBackButton?BUTTON_BACK:MISC; };
+    virtual MenuItemType getItemType() { return int_isBackButton?BUTTON_BACK:MISC; };
     bool getIsPressable();
     void dispatchPress();
 
   private:
     static const int extraPadding = 12;
-    bool isBackButton = false;
+    bool int_isBackButton = false;
     const char* actionButton;
     // callback function
     void (*onPress)();
@@ -108,13 +107,10 @@ class HeaderItem: public MenuItemBase {
 
 class Menu: public MenuItemBase {
   public:
-    //Menu(const char* nameInpt, uint8_t count, ...);
     Menu(const char* nameInpt, uint8_t count, MenuItemBase** itemsIn);
 
     Menu(const char* nameInpt, uint8_t count, ...)
     : Menu(count, nameInpt, (va_start(ap_, count), ap_)) { va_end(ap_); };
-
-    //Menu(const char* nameInpt, uint8_t count ...);
 
     void bindToScreen(LCDScreen* scrn);
 
@@ -132,7 +128,7 @@ class Menu: public MenuItemBase {
 
   protected:
     // this is protected and has the argument order switched so that
-    // menu constructions with just one argument, don't choose this constructor
+    // menu constructions with just one argument don't choose this constructor
     Menu(uint8_t count, const char* nameInpt, va_list ap);
     MenuItemBase** items;
     int selectedIndex = -1;
@@ -168,7 +164,7 @@ class FullScreenElement: public MenuItemBase {
     FullScreenElement(const char* nameInpt, 
                       ScreenPosition position_in, 
                       bool selectable = false,
-                      void (*getItemNameFn)(const char*) = NULL,
+                      void (*getItemNameFn)(char*) = NULL,
                       MenuItemBase* child_in = NULL);
     MenuItemBase* getChild() { return child; };
     virtual MenuItemType getItemType();
@@ -179,11 +175,10 @@ class FullScreenElement: public MenuItemBase {
   protected:
     MenuItemBase* child;
   private:
-    void (*getItemName)(const char*);
+    void (*getItemName)(char*);
     ScreenPosition position;
     bool canSelect = false;
 };
-
 
 class FullScreenDisplay: public Menu {
 public:
@@ -204,7 +199,7 @@ private:
 
 class SettingChanger: public FullScreenElement {
 public:
-  SettingChanger::SettingChanger(Setting* setting_in, Encoder* encoder_in);
+  SettingChanger(Setting* setting_in, Encoder* encoder_in);
   virtual void renderItem(LCDScreen* screen, int16_t yPos, bool selected = false);
   virtual bool requiresUpdate();
   virtual void dispatchPress();
@@ -232,5 +227,11 @@ class NavigationController {
     LCDScreen* screen;
     Menu* currentMenu;
 };
+
+// forward declarations and external variables
+extern Menu mainMenu;
+extern FullScreenDisplay homeScreen;
+Menu* makeBrightnessMenu();
+Menu* makeColorMenu(const char* name, Setting* setting);
 
 #endif

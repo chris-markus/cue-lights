@@ -4,6 +4,9 @@
 // This software is licensed under the GNU GPLv3 License
 // =====================================================
 
+#ifndef STRINGS_H
+#define STRINGS_H
+
 // Strings file for controller UI
 #define STR_SPLASH "Tufts Drama + Dance"
 
@@ -49,3 +52,4 @@
 
 #define STR_TESTING_STATION "Testing station:"
 
+#endif

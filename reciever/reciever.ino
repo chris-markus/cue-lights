@@ -5,6 +5,7 @@
 // =====================================================
 
 #include <CueLightsCommon.h>
+#include <digitalWriteFast.h>
 
 #define NUM_SWITCHES 4
 
@@ -18,7 +19,7 @@ CLCDebouncedButton switches[NUM_SWITCHES] = {CLCDebouncedButton(12, ACTIVE_LOW_P
                                              CLCDebouncedButton(7, ACTIVE_LOW_PULLUP),
                                              CLCDebouncedButton(4, ACTIVE_LOW_PULLUP)};
 
-CLCSerialClass CLCSerial(&Serial);
+uint8_t dataBuffer[CLC_DATA_LEN];
 
 void setup() {
   pinMode(transmitPin, OUTPUT);
@@ -30,88 +31,96 @@ void setup() {
   }
 }
 
-enum RecieveState {
-  STATE_START,
-  STATE_ADDRESS,
-  STATE_TYPE,
-  STATE_DATA,
-  STATE_STATUS,
-  STATE_END,
-};
+//uint8_t ledColor[3] = {0,0,0};
 
-uint8_t ledColor[3] = {0,0,0};
+bool synchronized = false;
+uint8_t syncCounter = 0;
 
 void loop() {
-  static bool addressedToMe = false;
-  static RecieveState state = STATE_START;
-  static CLCPacketType type;
-  static int dataCounter = 0;
-  static bool colorValid = true;
+  uint8_t ndx = 0;
+  char rc = 0;
+  bool shouldRespond = false;
+  MessageProgressState state = STATE_START;
+  bool willDesync = false;
+  // the end packet symbol could show up in our color data so we protect
+  // against it here and make sure we synchronize by sending a "break" sequence
+  // of end symbols for at least the length of the data every few packets.
+  while (rc != CLC_PKT_END || state == STATE_DATA) {
+    if (Serial.available()) {
+      rc = Serial.read();
 
-  char newChar;
-  if (Serial.available()) {
-    newChar = Serial.read();
-    switch(state) {
-      case STATE_START:
-        if (((uint8_t)(newChar)) == CLC_PKT_START) {
-          addressedToMe = false;
-          dataCounter = 0;
-          state = STATE_ADDRESS;
+      if (!synchronized && rc == CLC_PKT_END) {
+        syncCounter++;
+      }
+      else if (!synchronized && rc != CLC_PKT_END) {
+        if (syncCounter >= CLC_BREAK_LEN - 2) {
+          synchronized = true;
         }
-        break;
-      case STATE_ADDRESS:
-        addressedToMe = (((uint8_t)(newChar)) == getAddress());
-        state = STATE_TYPE;
-        if (addressedToMe) {
-          colorValid = false;
-        }
-        break;
-      case STATE_TYPE:
-        type = (CLCPacketType)(newChar);
-        if (type == CONTROL) {
-          state = STATE_DATA;
-        }
-        else if (type == STATUS) {
-          state = STATE_STATUS;
-        }
-        break;
-      case STATE_DATA:
-        if (addressedToMe && dataCounter < CLC_DATA_LEN) {
-          ledColor[dataCounter] = newChar;
-        }
-        dataCounter++;
-        if (dataCounter >= CLC_DATA_LEN) {
+        syncCounter = 0;
+      }
+
+      switch(state) {
+        case STATE_START:
+          if (rc == CLC_PKT_START) {
+            state = STATE_TYPE;
+          }
+          break;
+        case STATE_TYPE:
+          if (rc == PKT_TYPE_CONTROL) {
+            state = STATE_DATA;
+          }
+          else if (rc == PKT_TYPE_STATUS) {
+            state = STATE_STATUS;
+          }
+          else {
+            state = STATE_END;
+          }
+          break;
+        case STATE_DATA:
+          if (ndx < CLC_DATA_LEN) {
+            dataBuffer[ndx++] = rc;
+          }
+          else {
+            //if (synchronized) {
+              updateLEDs();
+            //}
+            state = STATE_END;
+          }
+          break;
+        case STATE_STATUS:
+          if (rc == getAddress()) {
+            shouldRespond = true;
+          }
+          // desync when we reach station 10 so we force a re-sync
+          if (rc == MAX_STATIONS - 1) {
+            willDesync = true;
+          }
           state = STATE_END;
-        }
-        break;
-      case STATE_STATUS:
-        if (addressedToMe) {
-          digitalWrite(transmitPin, HIGH);
-          delay(CLC_STATE_SWITCH_DELAY + 1);
-          char buf[4];
-          buf[0] = CLC_PKT_START;
-          buf[1] = getAddress();
-          buf[2] = RESPONSE;
-          buf[3] = CLC_PKT_END;
-          Serial.write(buf, 4);
-          delay(1);
-          digitalWrite(transmitPin, LOW);
-          delay(CLC_STATE_SWITCH_DELAY);
-        }
-        state = STATE_START;
-        break;
-      case STATE_END:
-        colorValid = true;
-        addressedToMe = false;
-        if(((uint8_t)(newChar)) == CLC_PKT_END) {
-          state = STATE_START;
-        }
-        break;
+          break;
+        case STATE_END:
+          // do nothing - the while loop will end us
+          break;
+      }
     }
   }
-  if (colorValid) {
-    updateLEDs();
+
+  if (shouldRespond) {
+    digitalWriteFast(transmitPin, HIGH);
+    delay(CLC_STATE_SWITCH_DELAY + 1);
+    char buf[5];
+    int len = 0;
+    buf[len++] = CLC_PKT_START;
+    buf[len++] = PKT_TYPE_RESPONSE;
+    buf[len++] = getAddress();
+    buf[len++] = (uint8_t)(synchronized);
+    buf[len++] = CLC_PKT_END;
+    Serial.write(buf, len);
+    delay(1);
+    digitalWriteFast(transmitPin, LOW);
+    delay(CLC_STATE_SWITCH_DELAY);
   }
+
+  if (willDesync) synchronized = false;
 }
 
 uint8_t getAddress() {
@@ -123,8 +132,11 @@ uint8_t getAddress() {
 }
 
 void updateLEDs() {
-  for(int i=0; i<3; i++) {
-    analogWrite(ledPins[i][0], ledColor[i]);
-    analogWrite(ledPins[i][1], ledColor[i]);
+  if (getAddress()-1 < 0 || 3*(getAddress()-1) + 2 >= MAX_STATIONS*3) {
+    return;
+  }
+  for(int i=0, j=3*(getAddress()-1); i<3; i++, j++) {
+    analogWrite(ledPins[i][0], dataBuffer[j]);
+    analogWrite(ledPins[i][1], dataBuffer[j]);
   }
 }

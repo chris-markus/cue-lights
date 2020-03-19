@@ -7,6 +7,7 @@
 #include "menu.h"
 #include <stdarg.h>
 #include "constants.h"
+#include "settings.h"
 
 #include "Arduino.h"
 
@@ -97,14 +98,14 @@ void MenuItem::dispatchPress() {
 // HeaderItem
 // =====================================================
 
-HeaderItem::HeaderItem(const char* nameInpt, const char* actionButtonStr, void (*onPressCb)(), bool isBackButton_in)
+HeaderItem::HeaderItem(const char* nameInpt, const char* actionButtonStr, void (*onPressCb)(), bool isBackButton)
 : MenuItemBase(nameInpt, /*showIndex = */false) {
   actionButton = actionButtonStr;
-  isBackButton = isBackButton_in;
+  int_isBackButton = isBackButton;
   onPress = onPressCb;
 }
 
-void HeaderItem::renderItem(LCDScreen* screen, int16_t yPos, bool select = false) {
+void HeaderItem::renderItem(LCDScreen* screen, int16_t yPos, bool select) {
   screen->setTextColor(WHITE);
   int16_t x,y;
   uint16_t w,h;
@@ -147,7 +148,7 @@ void HeaderItem::dispatchPress() {
 // Divider
 // =====================================================
 
-void Divider::renderItem(LCDScreen* screen, int16_t yPos, bool select = false) {
+void Divider::renderItem(LCDScreen* screen, int16_t yPos, bool select) {
   screen->drawFastHLine(0,yPos,screen->width(),WHITE);
   screen->drawFastHLine(0,yPos+MENU_ITEM_PADDING*2,screen->width(),WHITE);
 }
@@ -309,7 +310,7 @@ void Menu::setParentMenu(Menu* parent) {
       items[i] = items[i-1];
     }
     length++;
-    items[0] = new HeaderItem(name, STR_BACK_BUTTON ,NULL, true);//new BackButton();
+    items[0] = new HeaderItem(name, STR_BACK_BUTTON, NULL, true);
   }
 }
 
@@ -397,7 +398,7 @@ MenuItemBase* FullScreenDisplay::getSelectedItem() {
 FullScreenElement::FullScreenElement(const char* nameInpt, 
                                      ScreenPosition position_in,  
                                      bool selectable,
-                                     void (*getItemNameFn)(const char*),
+                                     void (*getItemNameFn)(char*),
                                      MenuItemBase* child_in)
 : MenuItemBase(nameInpt, /*showNum =*/false) {
   canSelect = selectable;
@@ -535,13 +536,11 @@ void SettingChanger::renderItem(LCDScreen* screen, int16_t yPos, bool selected) 
 
 // a press makes us leave this menu
 void SettingChanger::dispatchPress() {
-  //Serial.println("press dispatched!");
   offsetValid = false;
-  Settings::getInstance()->save(setting);
+  saveSettings();
   // super
   FullScreenElement::dispatchPress();
 }
-
 
 
 // =====================================================
