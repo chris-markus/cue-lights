@@ -16,9 +16,9 @@
 // version of settings (change this whenever changes are made to SettingsEEPROMData struct)
 #define SETTINGS_ITERATION 1
 
-#define EEPROM_CRC_ADDRESS 0
+#define EEPROM_CRC_ADDRESS EEPROM.length() - sizeof(unsigned long)
 // offset the start of our data by the size of the crc (which is stored at 0)
-#define EEPROM_SETTINGS_ADDRESS sizeof(unsigned long)
+#define EEPROM_SETTINGS_ADDRESS 0
 
 
 #define SETTING_PANEL_BRIGHTNESS "Panel Brightness"
@@ -59,11 +59,11 @@ extern Setting flashOnStandby;
 
 struct SettingsEEPROMData {                     // Offsets from start address: (eeprom is byte-addressable)
     int iteration = SETTINGS_ITERATION;         // 0
-    uint8_t panelBrightness;                    // 4
-    uint8_t stationBrightness[10];              // 5
-    uint8_t standbyColor[3];                    // 15
-    uint8_t goColor[3];                         // 18
-    uint8_t flashOnStandby;                     // 21
+    uint8_t panelBrightness;                    // 2
+    uint8_t stationBrightness[10];              // 3
+    uint8_t standbyColor[3];                    // 13
+    uint8_t goColor[3];                         // 16
+    uint8_t flashOnStandby;                     // 19
 };
 
 // forward declarations:

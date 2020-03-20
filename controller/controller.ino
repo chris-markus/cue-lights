@@ -59,9 +59,10 @@ enum ControllerState {
   WAIT,
 };
 
-// Interrupt Service Routine to update panel LEDs and ensure no flickering
+// Interrupt Service Routine to update panel LEDs every 0.5ms and ensure no flickering
 // If you use pixel-mapped leds, this will no longer be neccessary!
-ISR(TIMER2_OVF_vect) {
+ISR(TIMER4_OVF_vect) {
+  TCNT4 = TIMER_COUNTER_PRELOAD;
   static int i = 0;
   analogWrite(ledPwmPins[0], 0);
   analogWrite(ledPwmPins[1], 0);
@@ -85,8 +86,13 @@ void setup() {
     pinMode(statusLEDPins[i], OUTPUT);
   }
   updateGlobalStatusLED();
+
   pinMode(buttonStbyEnable, OUTPUT);
   pinMode(buttonGoEnable, OUTPUT);
+
+  #ifdef DEBUG
+  Serial.begin(CLC_DEFAULT_BAUD_RATE);
+  #endif
 
   // initialize settings and stations (cue light boxes):
   InitSettings();
@@ -94,14 +100,20 @@ void setup() {
 
   // begin serial connection(s)
   STATION_SERIAL.begin(CLC_DEFAULT_BAUD_RATE);
-  #ifdef DEBUG
-  Serial.begin(CLC_DEFAULT_BAUD_RATE);
-  #endif
 
-  // timer interrupt for panel indicator lights
-  TIMSK2 = (TIMSK2 & B11111110) | 0x01;
-  TCCR2B = (TCCR2B & B11111000) | 0x03;
-  //TCCR2B = (TCCR2B & B11111000) | 0x05;
+  // setup ISR and change pwm frequency
+  noInterrupts();
+  // setup ISR on timer 4 to run face panel light code
+  TCCR4A = 0;
+  TCCR4B = 0;
+  TIMSK4 |= (1 << TOIE1); // enable timer overflow interrupt
+  TCCR4B |= (1 << CS12); // 256 prescaler
+  TCNT4 = TIMER_COUNTER_PRELOAD; // preload timer 65536-16MHz/256/2Hz
+
+  // increase PWM frequency of timers 1 and 2 to help reduce panel light flickering
+  TCCR2B = TCCR2B & 0b11111000 | 0x01;
+  TCCR1B = TCCR1B & 0b11111000 | 0x01;
+  interrupts();
 
   // screen setup
   screen.init();
@@ -121,10 +133,11 @@ void loop() {
     GlobalStatus = OK;
     initialSet = true;
   }
+  detectButtonPresses();
   updateFacePanelLights();
   interface->tick();
   updateGlobalStatusLED();
-  UpdateRemote();
+  HandleCommunication();
 }
 
 void resetSettings() {
@@ -208,20 +221,15 @@ void getDescriptiveGlobalStatusString(char* input) {
   }
 }
 
-void updateFacePanelLights() {
+void detectButtonPresses() {
   // row 0 is standby, 1 is go
   static int buttonRow = false;
-  static bool canSwap[MAX_STATIONS];
-  static bool isInit = false;
-  if (!isInit) {
-    for(int i=0; i<MAX_STATIONS; i++) {
-      canSwap[i] = true;
-    }
-    isInit = true;
-  }
+  static bool canSwap[MAX_STATIONS] = {1,1,1,1,1,1,1,1,1,1};
+
   digitalWrite(buttonStbyEnable, buttonRow);
   digitalWrite(buttonGoEnable, !buttonRow);
 
+  // button press detection loop
   for (int i=0; i<MAX_STATIONS; i++) {
     if (stations[i].connStatus == CONNECTED) {
       CueStatus status = stations[i].cueStatus;
@@ -263,49 +271,71 @@ void updateFacePanelLights() {
     }
   }
 
-  for (int i=0; i<MAX_STATIONS; i++) {
-    if (stations[i].cueStatus == STBY) {
-      stations[i].color = {standbyColor[0].value, standbyColor[1].value, standbyColor[2].value};
-    }
-    else if (stations[i].cueStatus == GO) {
-      stations[i].color = {goColor[0].value, goColor[1].value, goColor[2].value};
-    }
-    else {
-      stations[i].color = {0,0,0};
-    }
-  }
-
   buttonRow = !buttonRow;
+}
 
-  for(int i=0; i< MAX_STATIONS; i++) {
-    if (stations[i].connStatus == CONNECTED && stations[i].cueStatus == NONE) {
-      panelIndicators[i] = {0,0,12};
-    }
-    else {
-      panelIndicators[i] = stations[i].color;
-    }
+void updateFacePanelLights() {
+  static bool flashOn = true;
+  static unsigned long lastFlashChange = 0;
+
+  if (flashOn && millis() > FLASH_DELAY_ON + lastFlashChange || 
+      !flashOn && millis() > FLASH_DELAY_OFF + lastFlashChange)
+  {
+    flashOn = !flashOn;
+    lastFlashChange = millis();
   }
 
   int stby = -1;
   int go = -1;
   int connected = -1;
-  for (int i=0; i<MAX_STATIONS; i++) {
-    if (stations[i].cueStatus == STBY) {
-      stby = i;
-    }
-    else if (stations[i].cueStatus == GO) {
-      go = i;
-    }
-    else if (stations[i].connStatus == CONNECTED) {
+
+  // color update loop
+  for(int i=0; i< MAX_STATIONS; i++) {
+    if (stations[i].connStatus == CONNECTED) {
       connected = i;
+      if (stations[i].cueStatus == STBY) {
+        stby = i;
+        if (!flashOnStandby.value || flashOnStandby.value && flashOn) {
+          stations[i].color = getScaledColor(RGBColor {standbyColor[0].value, standbyColor[1].value, standbyColor[2].value},
+                                             stationBrightness[i].max,
+                                             stationBrightness[i].value);
+        }
+        else {
+          stations[i].color = {0,0,0};
+        }
+        panelIndicators[i] = getScaledColor(stations[i].color, panelBrightness.max, panelBrightness.value);
+      }
+      else if (stations[i].cueStatus == GO) {
+        go = i;
+        stations[i].color = getScaledColor(RGBColor {goColor[0].value, goColor[1].value, goColor[2].value},
+                                           stationBrightness[i].max,
+                                           stationBrightness[i].value);
+        panelIndicators[i] = getScaledColor(stations[i].color, panelBrightness.max, panelBrightness.value);
+      }
+      else {
+        stations[i].color = {0,0,0};
+        panelIndicators[i] = {0,0,12};
+      }
+    }
+    else {
+      panelIndicators[i] = {0,0,0};
     }
   }
 
   if (stby != -1) {
-    panelIndicators[MAX_STATIONS] = panelIndicators[stby];
+    if (!flashOnStandby.value || flashOnStandby.value && flashOn) {
+      panelIndicators[MAX_STATIONS] = getScaledColor(RGBColor {standbyColor[0].value, standbyColor[1].value, standbyColor[2].value},
+                                                     panelBrightness.max,
+                                                     panelBrightness.value);
+    }
+    else {
+      panelIndicators[MAX_STATIONS] = {0,0,0};
+    }
   }
   else if (go != -1) {
-    panelIndicators[MAX_STATIONS] = panelIndicators[go];
+    panelIndicators[MAX_STATIONS] = getScaledColor(RGBColor {goColor[0].value, goColor[1].value, goColor[2].value},
+                                                   panelBrightness.max,
+                                                   panelBrightness.value);
   }
   else if (connected != -1) {
     panelIndicators[MAX_STATIONS] = panelIndicators[connected];
@@ -315,7 +345,16 @@ void updateFacePanelLights() {
   }
 }
 
-void UpdateRemote() {
+RGBColor getScaledColor(RGBColor c, uint8_t max, uint8_t value) {
+  c.r = (uint8_t)((uint16_t)(c.r)*(uint16_t)(value)/(uint16_t)(max));
+  c.g = (uint8_t)((uint16_t)(c.g)*(uint16_t)(value)/(uint16_t)(max));
+  c.b = (uint8_t)((uint16_t)(c.b)*(uint16_t)(value)/(uint16_t)(max));
+  return c;
+}
+
+// Handles all communication with the cue light stations. See "CueLightsCommon.h" for 
+// in-depth protocol descriptions.
+void HandleCommunication() {
   static ControllerState controllerState = BREAK;
   static uint8_t responseStation = 0;
   int len = 0;
@@ -371,24 +410,9 @@ void UpdateRemote() {
           recvBuffer[recvIndex++] = ch;
         }
       }
-      /*
-      if (recvIndex == CLC_STATUS_LEN + CLC_OVERHEAD) {
-        Serial.print("Packet: ");
-        Serial.print(recvBuffer[0]);
-        Serial.print(", ");
-        Serial.print(recvBuffer[1]);
-        Serial.print(", ");
-        Serial.print((uint8_t)(recvBuffer[2]));
-        Serial.print(", ");
-        Serial.print((uint8_t)(recvBuffer[3]));
-        Serial.print(", ");
-        Serial.print(recvBuffer[4]);
-        Serial.println();
-      }*/
 
       // recieved packet: |START|TYPE|ADDRESS (as char)|SYNCHRONIZED (as char)|END|
       //         example: | '<' |'R' |      0x03       |         0x01         |'>'|
-
       // we care about the synchronized byte because the cue light will not accept color commands if it is not synchronized
       if (recvIndex == CLC_STATUS_LEN + CLC_OVERHEAD &&
           recvBuffer[0] == CLC_PKT_START &&

@@ -10,15 +10,31 @@
 #include <stdint.h>
 #include "Arduino.h"
 
-#define MAX_STATIONS 10 // Max number of connected stations
+// Max number of connected stations
+#define MAX_STATIONS 10
 #define CHANNELS_PER_STATION 3
 
 // some global constants
 #define CLC_DEFAULT_BAUD_RATE 115200
-#define SEND_BUFFER_LEN 200
 
-// packet definitions... very loosely based on DMX packet principles
-// inspired by http://github.com/mathertel/DmxSerial
+// packet definitions... very very loosely based on DMX/RDM packet principles
+/* 
+ * 3 packet types:
+ * 
+ * CONTROL: Sent by the control station, contains the color data for each cue light
+ * STATUS: Sent by the control station, contains the address of a cue light that
+ *  should respond to this message
+ * RESPONSE: Sent by a cue light station, contains the address of the station it 
+ *  was sent from and whether or not that station is synchronized
+ * 
+ * Each packet begins with a start character and then the packet type. Then the
+ * packet data is sent, followed by an end character.
+ * For instance, the RESPONSE packet looks like this:
+ * |START|TYPE|ADDRESS (as char)|SYNCHRONIZED (as char)|END|
+ * | '<' |'R' |      0x03       |         0x01         |'>'|
+ * 
+ * 
+*/
 #define CLC_PKT_START '<'
 #define CLC_PKT_END '>'
 #define CLC_DATA_LEN (CHANNELS_PER_STATION * MAX_STATIONS)
@@ -38,35 +54,7 @@ typedef uint8_t CLCPacketType;
 #define CLC_STATE_SWITCH_DELAY 1 // ms
 #define CLC_COLOR_SEND_DELAY 2 // ms + 1
 
-
-/*
-enum SerialState {
-    WILL_RECIEVE,
-    RECIEVING,
-    WILL_SEND,
-    SENDING
-};
-
-class CLCSerialClass {
-public:
-    CLCSerialClass(HardwareSerial *ser) { serial = ser; };
-    void init(bool is_master, int mode_pin_in);
-    void setAddress(uint8_t address) { int_address = address; };
-    void write(const char* buffer, int len);
-    bool read(char& byte);
-    void tick();
-private:
-    bool isInitialized = false;
-    int mode_pin;
-    unsigned long lastStateChange = 0;
-    char sendBuffer[SEND_BUFFER_LEN];
-    int bufferLen = 0;
-    bool master = true;
-    uint8_t int_address;
-    uint8_t msgLen;
-    SerialState state;
-    HardwareSerial *serial;
-};*/
+#define STATION_DISCONNECT_TIMEOUT 2000 // ms
 
 // General Structs and enums
 struct RGBColor {
@@ -75,6 +63,7 @@ struct RGBColor {
     uint8_t b;
 };
 
+// message recieve progress state (only used in reciever code for now...)
 enum MessageProgressState {
   STATE_START,
   STATE_TYPE,

@@ -31,10 +31,10 @@ void setup() {
   }
 }
 
-//uint8_t ledColor[3] = {0,0,0};
-
 bool synchronized = false;
 uint8_t syncCounter = 0;
+unsigned long lastSuccessfulPacket = 0;
+unsigned long lastForceDesync = 0;
 
 void loop() {
   uint8_t ndx = 0;
@@ -46,6 +46,17 @@ void loop() {
   // against it here and make sure we synchronize by sending a "break" sequence
   // of end symbols for at least the length of the data every few packets.
   while (rc != CLC_PKT_END || state == STATE_DATA) {
+    // force a desynchronization if it has been a while since the last successful packet
+    // AND it has been a while since we forced a desynchronization (to allow time to 
+    // recieve a successful packet)
+    if (synchronized &&
+        millis() > lastSuccessfulPacket + STATION_DISCONNECT_TIMEOUT &&
+        millis() > lastForceDesync + STATION_DISCONNECT_TIMEOUT)
+    {
+      syncCounter = 0;
+      synchronized = false;
+      lastForceDesync = millis();
+    }
     if (Serial.available()) {
       rc = Serial.read();
 
@@ -81,9 +92,10 @@ void loop() {
             dataBuffer[ndx++] = rc;
           }
           else {
-            //if (synchronized) {
+            if (synchronized) {
+              lastSuccessfulPacket = millis();
               updateLEDs();
-            //}
+            }
             state = STATE_END;
           }
           break;
@@ -120,7 +132,10 @@ void loop() {
     delay(CLC_STATE_SWITCH_DELAY);
   }
 
-  if (willDesync) synchronized = false;
+  if (willDesync) {
+    synchronized = false;
+    syncCounter = 0;
+  }
 }
 
 uint8_t getAddress() {

@@ -17,11 +17,13 @@
 // serial interface for remote stations
 #define STATION_SERIAL Serial2
 
-
-#define STATION_DISCONNECT_TIMEOUT 2000 // ms
 #define FLASH_DELAY_ON 1000
 #define FLASH_DELAY_OFF 300
 
+// run panel light interrupt at 2000Hz: x = 65536-16MHz/256/2000Hz
+#define TIMER_COUNTER_PRELOAD 65504
+
+// pin definitions:
 const int transmitPin = 2;
 const int ledEnablePins[] = {LED_EN_0,LED_EN_1,LED_EN_2,LED_EN_3,LED_EN_4,LED_EN_5,LED_EN_6,LED_EN_7,LED_EN_8,LED_EN_9,LED_EN_10};
 const int ledPwmPins[] = {11, 10, 9}; // r, g, b

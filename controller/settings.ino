@@ -12,8 +12,8 @@ Setting standbyColor[3] = {
   {STR_BLUE, 0, 255, 0, VALUE}
 };
 Setting goColor[3] = {
-  {STR_RED, 255, 255, 0, VALUE},
-  {STR_GREEN, 0, 255, 0, VALUE},
+  {STR_RED, 0, 255, 0, VALUE},
+  {STR_GREEN, 255, 255, 0, VALUE},
   {STR_BLUE, 0, 255, 0, VALUE}
 };
 Setting stationBrightness[MAX_STATIONS];
@@ -50,6 +50,7 @@ SettingsEEPROMData settingsToEEEPROMDataHelper() {
   for (int i=0; i<MAX_STATIONS; i++) {
     s.stationBrightness[i] = stationBrightness[i].value;
   }
+  return s;
 }
 
 void settingsFromEEPROMDataHelper(SettingsEEPROMData s) {
@@ -79,15 +80,27 @@ void resetDefaultSettings() {
 void saveSettings() {
   SettingsEEPROMData s = settingsToEEEPROMDataHelper();
   EEPROM.put(EEPROM_SETTINGS_ADDRESS, s);
-  EEPROM.put(EEPROM_CRC_ADDRESS, eeprom_crc(EEPROM_SETTINGS_ADDRESS));
+  unsigned long crc = eeprom_crc();
+  #ifdef DEBUG
+    Serial.print("Saved settings to eeprom... CRC: ");
+    Serial.println(crc);
+  #endif
+  EEPROM.put(EEPROM_CRC_ADDRESS, crc);
 }
 
 void recallSavedSettings() {
   SettingsEEPROMData s;
   EEPROM.get(EEPROM_SETTINGS_ADDRESS,s);
-  unsigned long crc = 0;
-  EEPROM.get(EEPROM_CRC_ADDRESS, crc);
-  if (s.iteration == SETTINGS_ITERATION && crc == eeprom_crc(EEPROM_SETTINGS_ADDRESS)) {
+  unsigned long storedCrc = ~0L;
+  EEPROM.get(EEPROM_CRC_ADDRESS, storedCrc);
+  unsigned long calculatedCrc = eeprom_crc();
+  #ifdef DEBUG
+    Serial.print("Recalled settings from eeprom... stored CRC: ");
+    Serial.print(storedCrc);
+    Serial.print(", calculated CRC: ");
+    Serial.println(calculatedCrc);
+  #endif
+  if (s.iteration == SETTINGS_ITERATION && storedCrc == calculatedCrc) {
     settingsFromEEPROMDataHelper(s);
   }
   else {
@@ -96,7 +109,7 @@ void recallSavedSettings() {
   }
 }
 
-unsigned long eeprom_crc(int start) {
+unsigned long eeprom_crc() {
   const unsigned long crc_table[16] = {
     0x00000000, 0x1db71064, 0x3b6e20c8, 0x26d930ac,
     0x76dc4190, 0x6b6b51f4, 0x4db26158, 0x5005713c,
@@ -106,7 +119,7 @@ unsigned long eeprom_crc(int start) {
 
   unsigned long crc = ~0L;
 
-  for (int index = start; index < EEPROM.length(); ++index) {
+  for (int index = 0; index < sizeof(SettingsEEPROMData); ++index) {
     crc = crc_table[(crc ^ EEPROM[index]) & 0x0f] ^ (crc >> 4);
     crc = crc_table[(crc ^ (EEPROM[index] >> 4)) & 0x0f] ^ (crc >> 4);
     crc = ~crc;
