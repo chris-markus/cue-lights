@@ -19,5 +19,5 @@
 | 32+ | 10mm RGB LED (Common Cathode) | [Amazon](https://www.amazon.com/dp/B01CI6EWHK/?coliid=I1IVWGD1GD914&colid=2FJIVCIG61FZ3&psc=1&ref_=lv_ov_lig_dp_it)
 | | Component order (From DigiKey)<sup>2</sup> | [Saved Cart](https://www.digikey.com/short/zjcjcv) | $72.72+ shipping |
 
-<sup>1</sup>: Be sure to get one that is UL-Listed  
-<sup>2</sup>: The quantities in the cart are (as best I can recall) EXACT. It is a fantastic idea to order extra of everything (and in some cases will actually be less expensive due to volume pricing).
+<sup>1</sup> Be sure to get one that is UL-Listed  
+<sup>2</sup> The quantities in the cart are (as best I can recall) EXACT. It is a fantastic idea to order extra of everything (and in some cases will actually be less expensive due to volume pricing).

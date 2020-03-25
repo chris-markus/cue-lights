@@ -8,12 +8,9 @@ DISCLAIMER: *This project is intended for ADVANCED users only! That is, you need
 
 ## Contents
 
-**/controller:** Contains Arduino code that runs on the Arduino Mega that acts as the controller for the system.
-
-**/reciever:** Contains Arduino code that runs on the arduino nano inside of each cue light box.
-
-**/hardware_controller:** Contains schematics and guides for building the controller box.
-
+**/controller:** Contains Arduino code that runs on the Arduino Mega that acts as the controller for the system.  
+**/reciever:** Contains Arduino code that runs on the arduino nano inside of each cue light box.  
+**/hardware_controller:** Contains schematics and guides for building the controller box.  
 **/hardware_receiver:** Contains schematics, guides, and PCB (Printed Circuit Board) manufacturing files to order the circuit boards within each cue light box.
 
 ## Getting Started

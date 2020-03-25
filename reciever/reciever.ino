@@ -12,6 +12,8 @@
 const int ledPins[3][2] = {6,9,5,10,3,11};
 const int transmitPin = 2;
 
+const int ledBuiltinPin = 13;
+
 //const int switchPins[4] = {4, 7, 8, 12};
 // switch at spot 0 is LSB ... at 4 is MSB
 CLCDebouncedButton switches[NUM_SWITCHES] = {CLCDebouncedButton(12, ACTIVE_LOW_PULLUP), 
@@ -24,6 +26,7 @@ uint8_t dataBuffer[CLC_DATA_LEN];
 void setup() {
   pinMode(transmitPin, OUTPUT);
   digitalWrite(transmitPin, LOW);
+  pinMode(ledBuiltinPin, OUTPUT);
   Serial.begin(CLC_DEFAULT_BAUD_RATE);
   for (int i=0; i<3; i++) {
     pinMode(ledPins[i][0], OUTPUT);
@@ -114,6 +117,7 @@ void loop() {
           break;
       }
     }
+    digitalWrite(ledBuiltinPin, synchronized);
   }
 
   if (shouldRespond) {

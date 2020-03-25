@@ -49,12 +49,11 @@ typedef uint8_t CLCPacketType;
 #define PKT_TYPE_RESPONSE 'R'
 
 // delays and timeouts
-#define CLC_RESPONSE_TIMEOUT 50 // ms
-#define CLC_RESPONSE_DELAY 10 // ms
+#define CLC_RESPONSE_TIMEOUT 80 // ms
+#define CLC_RESPONSE_DELAY 5 // ms
 #define CLC_STATE_SWITCH_DELAY 1 // ms
-#define CLC_COLOR_SEND_DELAY 2 // ms + 1
 
-#define STATION_DISCONNECT_TIMEOUT 2000 // ms
+#define STATION_DISCONNECT_TIMEOUT 3000 // ms
 
 // General Structs and enums
 struct RGBColor {

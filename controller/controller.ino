@@ -30,8 +30,8 @@
 #include "constants.h"
 #include "station.h"
 
-// uncomment this line to allow debug printing
- #define DEBUG
+// uncomment the following line to allow debug printing
+// #define DEBUG
 
 // some global objects
 CLCDebouncedButton encoderButton(encoderButtonPin, ACTIVE_LOW_PULLUP);
@@ -424,10 +424,19 @@ void HandleCommunication() {
         doneReceiving = true;
       }
       else if (millis() > requestSent + CLC_RESPONSE_TIMEOUT) {
+        #ifdef DEBUG
+          Serial.print("Timeout ");
+          Serial.println(stations[responseStation].address);
+        #endif
         if (stations[responseStation].lastSeen < millis() - STATION_DISCONNECT_TIMEOUT) {
           stations[responseStation].connStatus = DISCONNECTED;
         }
         doneReceiving = true;
+
+        // clear the recieve buffer
+        while(STATION_SERIAL.available()) {
+          STATION_SERIAL.read();
+        }
       }
 
       if (doneReceiving) {
